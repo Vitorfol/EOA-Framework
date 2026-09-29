@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dataframes</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <a class="back" href="/">← Voltar</a>
+      <h1>Dataframes</h1>
+      {% for p in previews %}
+        <div class="card">
+          <h2>{{ p.label }}</h2>
+          {% if p.error %}
+            <div class="error">Erro: {{ p.error }}</div>
+          {% else %}
+            <div>Shape: {{ p.shape[0] }} rows × {{ p.shape[1] }} cols</div>
+            <h3>Preview (first 5 rows)</h3>
+            <pre>{{ p.head | tojson(indent=2) }}</pre>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </body>
+</html>

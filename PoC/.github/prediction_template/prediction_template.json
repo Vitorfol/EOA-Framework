@@ -1,0 +1,42 @@
+{
+  "id": 1,
+  "model_info": {
+    "model_name": "xgboost_hydraulic_v1",
+    "model_type": "XGBoostClassifier",
+    "model_version": "v1.0",
+    "target_variable": "cool_condition",
+    "task_type": "classification"
+  },
+  "prediction": {
+    "summary": {
+      "class": 2,
+      "class_label": "reduced_efficiency",
+      "class_probabilities": { "0": 0.05, "1": 0.15, "2": 0.80 }
+    }
+  },
+  "features": {
+    "PS1_mean": 145.3,
+    "EPS1_mean": 67.1,
+    "FS1_std": 3.4
+  },
+  "metadata": {
+    "timestamp": "2026-03-18T12:34:56Z",
+    "source": "simulation",
+    "dataset_reference": "datasets/Condition monitoring of hydraulic systems/PS1.txt",
+    "units": {
+      "PS1_mean": "bar",
+      "EPS1_mean": "kW",
+      "FS1_std": "m3/s"
+    }
+  },
+  "generic": {
+    "llm_hint": "Summarize causes focusing on the provided top-level features and model summary. Prefer concise bullet points and a recommended maintenance action.",
+    "human_label_map": { "0": "normal", "1": "warning", "2": "reduced_efficiency" },
+    "interpretation_hints": [
+      "Units are provided in metadata.units",
+      "Features are the most relevant inputs for this prediction",
+      "If class probabilities are present, include confidence in the explanation"
+    ]
+  },
+  "raw_payload": {}
+}

@@ -1,0 +1,20 @@
+body { font-family: Arial, sans-serif; background:#f6f8fa; color:#222 }
+.container { max-width:900px; margin:36px auto; padding:18px }
+.pred-list { list-style:none; padding:0 }
+.pred-list li { background:white; border:1px solid #e1e4e8; padding:12px; margin-bottom:10px; border-radius:6px }
+.pred-list a { font-weight:600; text-decoration:none }
+.meta { color:#555; margin-top:4px }
+.predicted { margin-top:6px; font-weight:600 }
+.card { background:white; border:1px solid #e1e4e8; padding:12px; border-radius:6px }
+.actions { margin-top:12px }
+.actions button { padding:8px 10px; margin-right:8px }
+.actions input { padding:8px; width:60% }
+.result { white-space:pre-wrap; background:#f0f0f0; padding:12px; margin-top:12px; border-radius:6px }
+.chat { margin-top:12px }
+.error { color: #c00 }
+.chat-window { max-height: 300px; overflow:auto; padding:8px; background:#fff; border-radius:6px; border:1px solid #e1e4e8 }
+.msg { padding:8px 12px; margin:6px 0; border-radius:12px; max-width:80%; }
+.msg.user { background:#e6ffed; margin-left:auto; text-align:right; }
+.msg.assistant { background:#f0f4ff; margin-right:auto; text-align:left; }
+.muted { color:#666 }
+.back { text-decoration:none; color:#0366d6 }

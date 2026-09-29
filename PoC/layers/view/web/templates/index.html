@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Predições</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <h1>Predições</h1>
+      <div style="margin-bottom:12px"><a href="/dataframes">Ver dataframes</a></div>
+      {% if predictions %}
+        <ul class="pred-list">
+        {% for p in predictions %}
+          <li>
+            <a href="/prediction/{{ p.id }}">ID={{ p.id }}</a>
+            <div class="meta">{{ p.model_info.get('model_name','-') }} • target={{ p.model_info.get('target_variable','-') }} • {{ p.model_info.get('task_type','-') }}</div>
+            <div class="predicted">Predito: {{ p.predicted_display }}</div>
+          </li>
+        {% endfor %}
+        </ul>
+      {% else %}
+        <p>Nenhuma predição encontrada.</p>
+      {% endif %}
+    </div>
+  </body>
+</html>

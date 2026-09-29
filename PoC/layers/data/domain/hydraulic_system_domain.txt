@@ -1,0 +1,249 @@
+# Hydraulic Systems Condition Monitoring - Domain Knowledge
+
+## Overview
+
+This dataset contains condition monitoring data from a hydraulic test rig, designed to simulate and detect various failure modes and degradation states in industrial hydraulic systems. The test rig is representative of real-world applications in manufacturing, construction equipment, and heavy machinery.
+
+## System Description
+
+### Hydraulic Test Rig Components
+
+The test rig consists of the following primary components:
+
+1. **Primary Working Circuit**
+   - Pump: Provides hydraulic power to the system
+   - Motor: Drives the hydraulic pump
+   - Hydraulic accumulator: Stores pressurized hydraulic fluid
+   - Proportional valve: Controls flow and pressure
+
+2. **Cooling System**
+   - Cooler: Maintains optimal operating temperature
+   - Cooling efficiency sensors (virtual): Monitor cooling performance
+
+3. **Distribution System**
+   - Multiple pressure points (PS1-PS6): Monitor pressure throughout the system
+   - Flow sensors (FS1-FS2): Monitor volume flow rates
+   - Temperature sensors (TS1-TS4): Monitor thermal conditions
+
+## Monitored Variables
+
+### Sensor Types and Sampling Frequencies
+
+The system employs 17 sensors with three different sampling frequencies:
+
+#### High Frequency Sensors (100 Hz)
+- **PS1-PS6 (Pressure Sensors)**: Measure pressure at different points in the hydraulic circuit
+  - Critical for detecting leaks, valve issues, and accumulator problems
+  - High frequency captures rapid pressure fluctuations
+  
+- **EPS1 (Motor Power)**: Monitors electrical power consumption
+  - Indicates pump efficiency and mechanical load
+
+#### Medium Frequency Sensors (10 Hz)
+- **FS1 (Volume Flow - Pump)**: Measures flow rate from the pump
+- **FS2 (Volume Flow - Cooler)**: Measures flow rate through the cooler
+  - Flow sensors detect leakage and valve degradation
+  - Medium frequency sufficient for flow dynamics
+
+#### Low Frequency Sensors (1 Hz)
+- **TS1-TS4 (Temperature Sensors)**: Monitor thermal conditions at key points
+  - Thermal changes occur slowly, requiring lower sampling frequency
+  - Critical for detecting cooler degradation
+  
+- **VS1 (Vibration Sensor)**: Monitors system vibration
+  - Indicates mechanical wear and instability
+
+- **CE (Cooling Efficiency - Virtual)**: Computed efficiency metric
+- **CP (Cooling Power - Virtual)**: Computed power metric  
+- **SE (System Efficiency - Virtual)**: Overall efficiency metric
+
+### Measurement Cycles
+
+- Each measurement cycle lasts **60 seconds**
+- Total dataset: **2,205 cycles** representing different operating conditions
+- Conditions vary between cycles but remain constant within each cycle
+
+## Target Variables (Condition States)
+
+The dataset includes 5 target variables representing different component conditions:
+
+### 1. Cooler Condition
+**Values**: 3, 20, 100 (percentage of optimal efficiency)
+- **3%**: Close to total failure - severe degradation
+- **20%**: Reduced efficiency - moderate degradation
+- **100%**: Full efficiency - optimal condition
+
+**Indicators**: 
+- High temperatures (TS sensors)
+- Poor cooling efficiency (CE, CP)
+- Temperature differentials
+
+### 2. Valve Condition  
+**Values**: 73, 80, 90, 100 (percentage of optimal switching)
+- **73%**: Severe lag in switching behavior
+- **80%**: Moderate lag
+- **90%**: Slight lag
+- **100%**: Optimal switching behavior
+
+**Indicators**:
+- Pressure fluctuations (PS sensors)
+- Flow irregularities (FS sensors)
+- Valve response times
+
+### 3. Pump Leakage
+**Values**: 0, 1, 2 (severity level)
+- **0**: No leakage
+- **1**: Weak leakage
+- **2**: Severe leakage
+
+**Indicators**:
+- Pressure drops (PS sensors)
+- Flow rate reductions (FS sensors)
+- Power consumption changes (EPS1)
+- Temperature increases (TS sensors)
+
+### 4. Accumulator Pressure
+**Values**: 90, 100, 115, 130 (bar)
+- **90 bar**: Reduced pressure - below optimal
+- **100 bar**: Slightly reduced pressure
+- **115 bar**: Optimal pressure
+- **130 bar**: Near maximum permissible pressure
+
+**Indicators**:
+- Pressure sensor readings (especially PS1, PS2)
+- System stability
+- Pressure fluctuation patterns
+
+### 5. Stable Flag
+**Values**: 0, 1 (binary indicator)
+- **0**: Unstable operation - conditions did not reach steady state
+- **1**: Stable operation - system reached stable operating regime
+
+**Indicators**:
+- Consistency of sensor readings
+- Absence of oscillations
+- Steady-state achievement
+
+## Failure Modes and Physics
+
+### Cooler Degradation
+**Physics**: Reduced heat transfer due to fouling, scaling, or reduced coolant flow
+**Effects**:
+- Gradual temperature increase throughout system
+- Reduced cooling power and efficiency
+- Potential thermal stress on components
+
+### Valve Degradation  
+**Physics**: Mechanical wear, contamination, or seal degradation
+**Effects**:
+- Delayed response to control signals
+- Pressure oscillations
+- Flow irregularities
+- Energy losses
+
+### Pump Leakage
+**Physics**: Seal wear, mechanical damage, or gap formation
+**Effects**:
+- Internal fluid bypass
+- Reduced volumetric efficiency
+- Pressure drops
+- Flow rate reductions
+- Compensatory power increase
+- Heat generation
+
+### Accumulator Issues
+**Physics**: Gas pre-charge changes, bladder/membrane degradation
+**Effects**:
+- Altered pressure buffering capacity
+- System instability
+- Pressure fluctuations
+- Potential resonance effects
+
+## Data Characteristics
+
+### Statistical Properties
+- **No missing values**: Complete dataset with all sensors operational
+- **Class imbalance**: Some conditions more represented than others
+  - Accumulator: High imbalance (5.5:1 ratio)
+  - Cooler and Valve: Moderate imbalance (2-3:1 ratios)
+  - Pump and Stable Flag: Well balanced
+
+### Temporal Patterns
+- **Steady-state focus**: Most cycles represent stable operating conditions
+- **Transient detection**: Unstable flag captures non-steady-state behavior
+- **Multi-frequency**: Different dynamics captured at appropriate frequencies
+  - Fast: Pressure dynamics (100 Hz)
+  - Medium: Flow dynamics (10 Hz)
+  - Slow: Thermal dynamics (1 Hz)
+
+### Correlations
+- Strong correlations between pressure sensors (system-wide effects)
+- Moderate correlations between flow and pressure (hydraulic relationships)
+- Temperature sensors show thermal coupling
+- Virtual sensors combine multiple physical measurements
+
+## Machine Learning Considerations
+
+### Multi-Label Classification
+All 5 target variables can be predicted simultaneously or independently:
+- **Joint modeling**: Capture inter-dependencies between failure modes
+- **Independent modeling**: Simpler but may miss interactions
+- **Recommended**: Start with single-target models, then explore multi-task learning
+
+### Class Imbalance Strategies
+- **Accumulator**: Use SMOTE or class weights (high imbalance)
+- **Cooler/Valve**: Use class weights (moderate imbalance)
+- **Pump/Stable**: Standard methods (balanced)
+
+### Feature Engineering
+- **Statistical aggregation**: Mean, std, min, max, range, quartiles
+- **Temporal features**: Trends, slopes, change rates
+- **Frequency domain**: FFT features for cyclic patterns (pressure, vibration)
+- **Cross-sensor**: Ratios, differences, correlations
+
+### Model Selection
+- **Tree-based models**: Handle non-linear relationships well
+- **Time series models**: Capture temporal dependencies (LSTM, GRU)
+- **Hybrid approaches**: Combine statistical and temporal features
+
+### Validation Strategy
+- **Stratified splitting**: Maintain class distributions
+- **Cross-validation**: 5-fold recommended for robust evaluation
+- **Temporal considerations**: Avoid look-ahead bias if modeling real-time
+
+## Real-World Applications
+
+### Predictive Maintenance
+- Early detection of component degradation
+- Maintenance scheduling optimization
+- Failure prevention
+
+### Condition-Based Monitoring
+- Real-time system health assessment
+- Performance optimization
+- Energy efficiency improvements
+
+### Industrial Relevance
+- Manufacturing equipment
+- Construction machinery
+- Aerospace hydraulics
+- Automotive systems
+- Process industries
+
+## References
+
+- Dataset Source: UCI Machine Learning Repository
+- Dataset ID: 447
+- Title: Condition Monitoring of Hydraulic Systems
+- URL: https://archive.ics.uci.edu/dataset/447/condition+monitoring+of+hydraulic+systems
+- Authors: ZeMA gGmbH (Zentrum für Mechatronik und Automatisierungstechnik)
+- Year: 2018
+
+## Notes for Model Development
+
+1. **Start simple**: Begin with aggregated features and tree-based models
+2. **Validate physics**: Ensure predictions align with physical relationships
+3. **Explainability**: Use SHAP values to understand model decisions
+4. **Domain knowledge**: Incorporate hydraulic system physics in feature engineering
+5. **Robustness**: Test on different operating conditions and failure combinations
+6. **Real-time feasibility**: Consider computational requirements for deployment

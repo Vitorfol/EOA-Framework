@@ -1,0 +1,23 @@
+# Configuração de Treinamento
+# TODO: Preencher com valores reais após escolher o dataset
+
+data:
+  path: <path_to_dataset>
+  target: <target_column_name>
+  exclude_features: []
+  test_size: 0.2
+  random_state: 42
+
+models:
+  # TODO: Definir modelos e hiperparâmetros
+  model_name:
+    param1: value1
+    param2: value2
+
+output:
+  models_dir: layers/training/results/models
+  metrics_dir: layers/training/results/metrics
+  predictions_dir: layers/training/results/predictions
+
+logging:
+  level: INFO

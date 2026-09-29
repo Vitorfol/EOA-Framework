@@ -1,0 +1,54 @@
+{
+  "id": 1,
+  "model_info": {
+    "model_name": "xgboost_hydraulic_v1",
+    "model_type": "XGBoostClassifier",
+    "category": "tree_based",
+    "task_type": "classification",
+    "target_variable": "cool_condition"
+  },
+  "prediction": {
+    "instance_id": 123,
+    "predicted_class": 2,
+    "class_probabilities": {
+      "0": 0.05,
+      "1": 0.15,
+      "2": 0.80
+    }
+  },
+  "xai": {
+    "method": "shap_tree_explainer",
+    "expected_value": 0.7,
+    "top_features": [
+      {
+        "name": "PS1_mean",
+        "shap_value": 0.42,
+        "raw_value": 145.3,
+        "direction": "increases_risk"
+      },
+      {
+        "name": "EPS1_mean",
+        "shap_value": 0.25,
+        "raw_value": 67.1,
+        "direction": "increases_risk"
+      },
+      {
+        "name": "FS1_std",
+        "shap_value": -0.12,
+        "raw_value": 3.4,
+        "direction": "decreases_risk"
+      }
+    ]
+  },
+  "instance": {
+    "PS1_mean": 145.3,
+    "EPS1_mean": 67.1,
+    "FS1_std": 3.4,
+    "CP_mean": 250.0
+  },
+  "domain": {
+    "system": "hydraulic_condition_monitoring",
+    "description": "Sistema hidráulico industrial com múltiplos sensores de pressão, fluxo, temperatura e potência.",
+    "source": "layers.data.get_features_metadata.domain_content"
+  }
+}

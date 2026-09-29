@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Environment
+.env
+
+# Models & Results
+layers/training/models/*.pkl
+layers/training/models/*.joblib
+layers/training/results/*.json
+layers/training/results/*.csv
+
+# Datasets (não commitar datasets grandes)
+datasets/
+
+# Data layers - processed files (large, regeneratable)
+layers/data/processed/*.csv
+layers/data/processed/*.json
+layers/data/processed/*.md
+
+# Keep the directory structure
+!layers/data/processed/.gitkeep
+

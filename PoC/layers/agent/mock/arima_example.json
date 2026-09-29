@@ -1,0 +1,58 @@
+{
+  "id": 2,
+  "model_info": {
+    "model_name": "arima_hydraulic_pressure_v1",
+    "model_type": "ARIMA(2,1,1)",
+    "category": "statistical",
+    "task_type": "time_series_forecast",
+    "target_variable": "PS1"
+  },
+  "prediction": {
+    "horizon": 12,
+    "forecast_values": [
+      140.1,
+      139.8,
+      139.5
+    ],
+    "confidence_intervals": [
+      {
+        "lower": 135.0,
+        "upper": 145.0
+      },
+      {
+        "lower": 134.8,
+        "upper": 144.8
+      },
+      {
+        "lower": 134.5,
+        "upper": 144.5
+      }
+    ]
+  },
+  "xai": {
+    "method": "ar_terms_contribution",
+    "summary": "A previsão é fortemente influenciada pelos últimos 3 valores observados de PS1.",
+    "components": [
+      {
+        "component": "trend",
+        "description": "tendência levemente decrescente na pressão"
+      },
+      {
+        "component": "seasonality",
+        "description": "padrão diário fraco"
+      }
+    ]
+  },
+  "instance": {
+    "recent_history": [
+      141.2,
+      140.7,
+      140.3
+    ]
+  },
+  "domain": {
+    "system": "hydraulic_condition_monitoring",
+    "description": "Sistema hidráulico industrial com foco na série temporal de pressão PS1.",
+    "source": "layers.data.get_features_metadata.domain_content"
+  }
+}

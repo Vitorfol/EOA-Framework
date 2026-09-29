@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="pt-br">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Predição {{ pred.id }}</title>
+    <link rel="stylesheet" href="/static/style.css">
+  </head>
+  <body>
+    <div class="container">
+      <a class="back" href="/">← Voltar</a>
+      <h1>Predição — ID {{ pred.id }}</h1>
+      <div class="card">
+        <h2>Modelo: {{ pred.model_info.model_name }}</h2>
+        <p>Tipo: {{ pred.model_info.model_type }} · Target: {{ pred.model_info.target_variable }} · Task: {{ pred.model_info.task_type }}</p>
+        <h3>Previsão</h3>
+        <pre>{{ pred.prediction | tojson(indent=2) }}</pre>
+        <h3>Features</h3>
+        <pre>{{ pred.features | tojson(indent=2) }}</pre>
+        <div class="actions">
+          <button id="explain">Gerar Explicação</button>
+          <input id="question" placeholder="Pergunta de follow-up" />
+          <button id="ask">Enviar Pergunta</button>
+        </div>
+        <div class="chat">
+          <h3>Chat (conversa)</h3>
+          <div id="conversation" class="chat-window">Carregando conversa...</div>
+        </div>
+        <div id="result" class="result"></div>
+      </div>
+    </div>
+
+    <script>
+    async function loadConversation(){
+      const res = await fetch('/api/conversation/{{ pred.id }}');
+      const j = await res.json();
+      const conv = j.conversation || [];
+      const el = document.getElementById('conversation');
+      if(conv.length===0){ el.innerHTML = '<div class="muted">Sem mensagens ainda.</div>'; return }
+      // render messages as bubbles
+      el.innerHTML = '';
+      conv.forEach(m => {
+        const d = document.createElement('div');
+        d.className = 'msg ' + (m.role === 'user' ? 'user' : 'assistant');
+        d.innerText = m.text;
+        el.appendChild(d);
+      })
+      // scroll to bottom
+      el.scrollTop = el.scrollHeight;
+    }
+
+    document.getElementById('explain').addEventListener('click', async () => {
+      const res = await fetch('/api/explain/{{ pred.id }}', { method: 'POST' })
+      const data = await res.json()
+      // If there was an error, show it in the result box; otherwise show conversation only
+      if (data.error) {
+        document.getElementById('result').innerText = JSON.stringify(data, null, 2)
+      } else {
+        document.getElementById('result').innerText = ''
+      }
+      await loadConversation();
+    })
+
+    document.getElementById('ask').addEventListener('click', async () => {
+      const q = document.getElementById('question').value
+      if (!q) { alert('Digite uma pergunta'); return }
+      const res = await fetch('/api/conversation/{{ pred.id }}', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({question: q}) })
+      const data = await res.json()
+      if (data.error) {
+        document.getElementById('result').innerText = JSON.stringify(data, null, 2)
+      } else {
+        // clear result and input on success
+        document.getElementById('result').innerText = ''
+        document.getElementById('question').value = ''
+      }
+      await loadConversation();
+    })
+
+    loadConversation();
+    </script>
+  </body>
+</html>
