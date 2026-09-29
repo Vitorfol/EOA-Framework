@@ -1,0 +1,171 @@
+================================================================================
+EOA FRAMEWORK - RASCUNHO & BRAINSTORMING DE DESENVOLVIMENTO
+================================================================================
+Espaço livre para anotações rápidas, snippets de sintaxe, ideias de API e pensamentos.
+
+[IDEIA DE SINTAXE - DEVELOPER EXPERIENCE (DX)]
+--------------------------------------------------------------------------------
+Como queremos que o usuário use o EOA em seu projeto?
+
+1) Uso Ultra Simples (Zero Configuration, 3 Linhas):
+```python
+import eoa
+
+# Inicializa com os agentes default (CMA, AA, EA, VA) e LLM desejado
+layer = eoa.default_layer(llm=my_llm_client)
+
+# Explica uma predição recebida
+response = layer.explain(
+    prediction={"target": "Cooler Condition", "status": "Efficiency Reduced", "prob": 0.82},
+    xai={"top_features": {"PS1": 0.45, "EPS1": 0.35, "TS2": 0.20}},
+    context={"manuals": "manuals/cooling.txt", "sensor_dictionary": "schemas/sensors.json"},
+    user_query="Explique este alerta e recomende uma ação"
+)
+
+print(response.narrative)
+print(response.validation_score) # Ex: 9.5
+```
+
+2) Uso Avançado ("Developer is King" - Customizando Agentes e Prompts):
+```python
+import eoa
+
+layer = eoa.ExplanationLayer(llm=my_llm_client)
+
+# O dev pode criar os defaults se quiser:
+layer.create_default_agents()
+
+# O dev pode remover um agente que não quer usar:
+layer.remove_agent("CMA")
+
+# O dev pode sobrescrever um prompt usando .md, .txt ou string:
+layer.override_agent_prompt("EA", source="prompts/custom_explainer.md")
+
+# O dev pode adicionar um Specialized Agent com sua própria ferramenta/prompt:
+layer.register_specialized_agent(
+    name="HydraulicGovernorExpert",
+    prompt_file="prompts/specialized/governor.txt",
+    tools=[check_valve_pressure_tool]
+)
+
+# Chat multi-turn mantendo sessão:
+chat = layer.create_session(session_id="incident_4091")
+res1 = chat.ask("O que significa essa vibração no sensor PS1?")
+res2 = chat.ask("Isso tem risco iminente de danificar a turbina?")
+```
+
+3) Os 3 Modos de Conexão com LLM (Total Flexibilidade):
+```python
+# Modo 1: Chave + Modelo (EOA cria a conexão por baixo dos panos)
+layer = eoa.ExplanationLayer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
+
+# Modo 2: Cliente Pronto (BYO Client - proxy, TLS, headers corporativos)
+my_genai_client = genai.Client(...)
+layer = eoa.ExplanationLayer(llm=my_genai_client)
+
+# Modo 3: Função Própria (vLLM local, Ollama, modelo interno da empresa)
+def meu_llm_interno(prompt: str) -> str:
+    return gateway.generate(prompt)
+
+layer = eoa.ExplanationLayer(llm=meu_llm_interno)
+```
+
+4) Armazenamento do Chat: O Desenvolvedor Decide o que fazer com o .db!
+```python
+# Sessão persistente em arquivo local SQLite:
+layer = eoa.ExplanationLayer(
+    llm=...,
+    session_store=eoa.SQLiteSessionStore(db_path="meus_alertas.db")
+)
+# O dev é dono do arquivo .db! Pode abrir no DBeaver, rodar SELECTs, auditar histórico.
+```
+
+5) Manuais Gigantes (500 páginas): CMA com RAG Opcional!
+```python
+# Por padrão, o CMA usa schemas JSON e manuais estruturados (zero vetores).
+# Mas se o dev tiver um manual gigante e quiser usar RAG:
+cma = layer.get_agent("CMA")
+cma.set_retriever(meu_retriever_vetorial_customizado)
+# O framework não obriga a instalar Chroma/FAISS, mas dá o gancho perfeito para quem quiser!
+```
+
+6) CLI Inspirado no que conversamos:
+```bash
+$ eoa list --agents
+  [Registered Agents]
+  - Orchestrator (Core Backbone)
+  - CMA: Context Manager Agent [Prompt: eoa/prompts/cma.md]
+  - AA: Artifacts Agent [Prompt: eoa/prompts/aa.md]
+  - EA: Explainer Agent [Prompt: custom_prompts/ea.txt] (Overridden)
+  - VA: Validator Agent [Quality Gate, Threshold: 7.0/10]
+
+$ eoa init --template predictive-maintenance
+  Initialized eoa configuration in ./eoa_config.yaml and template prompts in ./prompts/
+```
+
+[ARQUITETURA DE DIRETÓRIOS PROPOSTA (RASCUNHO)]
+--------------------------------------------------------------------------------
+Como estruturamos o repositório e o pacote Python:
+
+```
+academia/
+├── pyproject.toml                     # Configuração PEP 621 do pacote pip e dependências
+├── README.md                          # Documentação pública inicial
+├── antigravity/                       # Nossos documentos de design e controle
+│   ├── glossary.md
+│   ├── requirements.txt
+│   ├── rascunho.txt
+│   ├── technical_specification.md
+│   └── user_journey_and_usage_scenarios.md
+├── src/
+│   └── eoa/
+│       ├── __init__.py                # Exporta ExplanationLayer, default_layer, etc.
+│       ├── layer.py                   # Classe principal ExplanationLayer (Fachada de uso)
+│       ├── contracts.py               # Modelos Pydantic (PredictionArtifact, XAIArtifact, etc.)
+│       │
+│       ├── prompts/                   # DIRETÓRIO DE PROMPTS DEFAULT (arquivos .md limpos e versionados)
+│       │   ├── __init__.py
+│       │   ├── cma_default.md         # Prompt padrão do Context Manager Agent
+│       │   ├── aa_default.md          # Prompt padrão do Artifacts Agent
+│       │   ├── ea_default.md          # Prompt padrão do Explainer Agent
+│       │   └── va_default.md          # Prompt padrão do Validator Agent (Quality Gate)
+│       │
+│       ├── agents/                    # AS CAIXAS DE AGENTES (Modulares e Substituíveis)
+│       │   ├── __init__.py
+│       │   ├── base.py                # BaseAgent e Tool (Abstrações)
+│       │   ├── context.py             # ContextManagerAgent & ContextRetriever
+│       │   ├── artifacts.py           # ArtifactsAgent
+│       │   ├── explainer.py           # ExplainerAgent
+│       │   ├── validator.py           # ValidatorAgent (Quality Gate com scoring e refinamento)
+│       │   └── specialized.py         # SpecializedAgent (Para agentes customizados do usuário)
+│       │
+│       ├── llm/                       # OS 3 MODOS DE CONEXÃO COM IA
+│       │   ├── __init__.py
+│       │   ├── base.py                # Interface abstrata LLMProvider (invoke / generate)
+│       │   └── providers.py           # Adaptadores para Gemini, OpenAI, Ollama e Callable
+│       │
+│       ├── memory/                    # SESSÃO E BANCO DE DADOS
+│       │   ├── __init__.py
+│       │   ├── base.py                # Interface SessionStore
+│       │   ├── in_memory.py           # InMemorySessionStore (Stateless / RAM)
+│       │   └── sqlite.py              # SQLiteSessionStore (Arquivo .db que o dev controla)
+│       │
+│       └── engine/                    # NOSSA ENGINE LEVE DE GRAFO / MÁQUINA DE ESTADOS
+│           ├── __init__.py
+│           └── orchestrator.py        # OrchestratorEngine (Conecta os agentes nos bastidores)
+│
+└── tests/                             # TESTES AUTOMATIZADOS (Rigor para o ICSE)
+    ├── test_contracts.py
+    ├── test_prompts_loading.py
+    ├── test_specialized_agents.py
+    ├── test_memory_sqlite.py
+    └── test_orchestrator.py
+```
+
+[PONTOS PARA LEMBRAR / RASCUNHOS DIVERSOS]
+--------------------------------------------------------------------------------
+- Prompts Default: Cada agente padrão vem com um prompt de fábrica em `src/eoa/prompts/*.md`.
+- Sobrescrita de Prompts: O usuário pode sobrescrever usando string Python, caminho de arquivo `.md` ou `.txt` próprio.
+- Specialized Agents: Ficam em `src/eoa/agents/specialized.py`, permitindo que o usuário crie especialistas para subsistemas específicos da planta industrial dele.
+- Termos oficiais registrados em antigravity/glossary.md.
+================================================================================

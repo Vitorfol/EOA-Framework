@@ -1,0 +1,96 @@
+================================================================================
+EOA (Explanation-Oriented Agents) Framework - Requirements Specification
+================================================================================
+
+1. PROJECT PHILOSOPHY & CORE PRINCIPLES
+--------------------------------------------------------------------------------
+1.1 "Developer is King / Almost Everything is Adaptable":
+    - Framework core provides sensible defaults, but zero mandatory locks.
+    - Default agents (Orchestrator, CMA, AA, EA, VA) can be modified, replaced,
+      disabled, or removed completely.
+    - Core must be ultra-lightweight: strictly decoupled from heavy AI agent frameworks
+      (LangChain, CrewAI, AutoGen, etc.) to guarantee determinism, low latency,
+      and suitability for safety-critical and legacy industrial systems.
+
+1.2 Architectural Decoupling & Fail-Safe ("Unplugged"):
+    - EOA operates as a non-intrusive sidecar/layer.
+    - If EOA crashes, times out, or runs out of LLM tokens, the host predictive system
+      MUST continue operating without disruption (graceful degradation with explicit fallback).
+
+1.3 Structured Contracts vs. Dense Vector RAG:
+    - Avoid dense vector search (Chroma, FAISS, Qdrant) as a core dependency.
+    - Adhere to the SBES paper foundation: structured, query-based retrieval against
+      explicit JSON schemas, domain contracts, sensor dictionaries, and tabular XAI outputs.
+
+1.4 Target Publication Venue:
+    - Target: ICSE (International Conference on Software Engineering) - SEIP, Research, or Tool Demo.
+    - Software Engineering standards: high modularity, high test coverage, strict typing,
+      reproducibility, comprehensive benchmarks, and empirical usability.
+
+2. FUNCTIONAL REQUIREMENTS (FR)
+--------------------------------------------------------------------------------
+FR-01: Engine & Multi-Agent Orchestration
+    - Native lightweight state-machine/graph engine in pure Python.
+    - Support asynchronous execution (asyncio) and synchronous execution wrappers.
+    - Configurable agent invocation pipelines (sequential, conditional branching, loops).
+
+FR-02: Core Canonical Agents
+    - ContextManagerAgent (CMA): Resolves operational metadata, technical manuals, and schemas.
+    - ArtifactsAgent (AA): Parses predictions, feature attributions (SHAP, LIME, custom JSON).
+    - ExplainerAgent (EA): Synthesizes contextualized natural language explanation.
+    - ValidatorAgent (VA): Mandatory quality gate with configurable threshold, scoring metric,
+      and bounded refinement loop (max attempts to prevent infinite token loops).
+    - SpecializedAgent (SA): Generic base class for developers to add domain-specific agents.
+
+FR-03: Agent Lifecycle & Dynamic Registry
+    - Register, list, inspect, override, and remove agents at runtime:
+      e.g., eoa.register_agent(), eoa.override_agent(), eoa.remove_agent().
+    - Support for loading agent prompts from strings, .txt files, .md files,
+      or dynamic Python callables.
+
+FR-04: LLM Provider Abstraction (3 Connection Modes)
+    - Abstract LLMProvider protocol (PEP 544).
+    - Mode 1 (Direct Credentials): Pass provider, api_key, model.
+    - Mode 2 (BYO Client): Pass an already instantiated client (genai.Client, OpenAI, LiteLLM).
+    - Mode 3 (Custom Callable): Pass a custom python function `def fn(prompt: str) -> str`.
+    - Zero mandatory LLM SDK dependencies in core. Optional adapter packages for
+      Google Gemini, OpenAI, Anthropic, and local Ollama/vLLM.
+
+FR-05: Session & Multi-Turn Chat Management
+    - Decoupled SessionStore protocol for chat history and audit trails.
+    - Default persistent storage: SQLiteSessionStore (using Python stdlib sqlite3 into a local .db file;
+      developer has full SQL access, audit capability, and ownership).
+    - In-Memory option: InMemorySessionStore (zero-disk, ideal for testing/ephemeral APIs).
+    - Pluggable interface for custom enterprise storage (Redis, PostgreSQL, etc.).
+
+FR-06: Document Retrieval & Domain Knowledge (ContextRetriever in CMA)
+    - Decoupled ContextRetriever protocol in ContextManagerAgent (CMA).
+    - Default: StructuredContextRetriever (query-based retrieval over structured JSON schemas,
+      variable dictionaries, and mapped manual excerpts, adhering strictly to the SBES paper).
+    - Pluggable RAG Extension: Developers can plug custom retrievers or RAG pipelines
+      for massive manuals (500+ pages) without adding heavy vector DBs to the framework core.
+
+FR-07: Developer CLI
+    - Command-line tool (eoa CLI) for inspecting configurations, listing agents and prompts,
+      validating input schemas, and generating starter project scaffolds (`eoa init`).
+
+3. NON-FUNCTIONAL REQUIREMENTS (NFR)
+--------------------------------------------------------------------------------
+NFR-01: Zero Heavy Core Dependencies: Core depends only on pydantic >= 2.0.
+NFR-02: Python Compatibility: Support Python 3.10, 3.11, 3.12, 3.13+.
+NFR-03: Performance & Latency: Engine overhead under 15ms (excluding external LLM calls).
+NFR-04: Robust Error Handling: Every agent step produces structured trace logs; failures trigger
+        predictable fallback responses rather than unhandled exceptions in the client host.
+NFR-05: Testability: 90%+ unit and integration test coverage with deterministic mock providers.
+
+4. DISTRIBUTION & PACKAGING
+--------------------------------------------------------------------------------
+- Standard PEP 621 pyproject.toml packaging.
+- Distribution name on PyPI: `eoa` (with `import eoa`).
+- Optional extras:
+    eoa[gemini] -> google-genai
+    eoa[openai] -> openai
+    eoa[anthropic] -> anthropic
+    eoa[cli] -> typer, rich
+    eoa[all] -> all provider adapters and CLI tooling
+================================================================================
