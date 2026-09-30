@@ -168,4 +168,5 @@ academia/
 - Sobrescrita de Prompts: O usuário pode sobrescrever usando string Python, caminho de arquivo `.md` ou `.txt` próprio.
 - Specialized Agents: Ficam em `src/eoa/agents/specialized.py`, permitindo que o usuário crie especialistas para subsistemas específicos da planta industrial dele.
 - Termos oficiais registrados em antigravity/glossary.md.
+- Backlog oficial de tarefas e fluxo Git registrado em antigravity/backlog.md.
 ================================================================================

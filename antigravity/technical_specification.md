@@ -8,8 +8,9 @@ Este documento formaliza as decisões de arquitetura de software, contratos de d
 
 O framework implementa a **Explanation Agent Layer** descrita no paper do SBES como uma camada de software autônoma, extensível e desacoplada (*unplugged*). 
 
-### 1.1 Diagrama de Componentes e Fluxo de Execução
+### 1.1 Fluxo de Execução e Loop de Validação
 
+#### A. Visão em Diagrama de Sequência Formal (Mermaid - Renderizável no GitHub/VS Code Preview)
 ```mermaid
 sequenceDiagram
     autonumber
@@ -51,18 +52,79 @@ sequenceDiagram
     end
 ```
 
+#### B. Visão Rápida em Texto Monoespaçado (Leitura Direta no Editor)
+```text
+==========================================================================================================
+FLUXO DE EXECUÇÃO DETALHADO DO EOA (ORQUESTRAÇÃO E QUALITY GATE)
+==========================================================================================================
+
+ [ APLICAÇÃO DO DEV ]
+          │
+          │ 1. explain(predição, artefatos_xai, contexto, pergunta)
+          ▼
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │                      ORCHESTRATOR ENGINE (Backbone)                    │
+ └────────┬───────────────────────────────┬───────────────────────────────┘
+          │                               │
+          │ 2. Busca histórico do chat    │ 3. Dispara consultas em paralelo
+          ▼                               ▼
+ ┌───────────────────┐        ┌─────────────────────────┬─────────────────────────┐
+ │   SessionStore    │        │ ContextManagerAgent     │ ArtifactsAgent (AA)     │
+ │ (SQLite / Memory) │        │ (CMA)                   │                         │
+ └───────────────────┘        │ Resolve manuais, regras │ Processa SHAP/LIME,     │
+                              │ e esquemas de sensores  │ predição e métricas     │
+                              └───────────┬─────────────┴───────────┬─────────────┘
+                                          │                         │
+                                          └────────────┬────────────┘
+                                                       │ 4. Evidências + Contexto
+                                                       ▼
+                                      ┌───────────────────────────────────┐
+                                      │ ExplainerAgent (EA)               │
+                                      │ Redige rascunho da narrativa      │
+                                      └────────────────┬──────────────────┘
+                                                       │
+                                                       │ 5. Avalia fidelidade e alucinação
+                                                       ▼
+                                      ┌───────────────────────────────────┐
+                      ┌───────────────┤ ValidatorAgent (VA - Quality Gate)│◄────────────┐
+                      │               │ Calcula nota (0 a 10) e feedback  │             │
+                      │               └────────────────┬──────────────────┘             │
+                      │                                │                                │
+                      │ [Nota < 7.0] Reprovado         │ [Nota >= 7.0] Aprovado         │
+                      │ (Tentativas < 3)               │                                │
+                      ▼                                ▼                                │
+      ┌───────────────────────────────┐     ┌───────────────────────────────────┐       │
+      │ Envia crítica e erros do VA   │     │ Salva no SessionStore e entrega   │       │
+      │ de volta ao Explainer (EA)    │     │ ExplanationResponse final         │       │
+      └───────────────┬───────────────┘     └─────────────────┬─────────────────┘       │
+                      │                                       │                         │
+                      └───────────────────────────────────────┴─────────────────────────┘
+                                       Loop de Refinamento (Máx 3 vezes)
+==========================================================================================================
+```
+
+### Passo a Passo Explicado:
+1. **Disparo**: O desenvolvedor passa os dados de predição e XAI brutos para `layer.explain(...)`.
+2. **Histórico**: O orquestrador busca mensagens anteriores daquela sessão no `SessionStore` (arquivo `.db`).
+3. **Consulta Paralela**: O `ContextManagerAgent` (CMA) e o `ArtifactsAgent` (AA) extraem as evidências e regras técnicas em paralelo.
+4. **Síntese**: O `ExplainerAgent` (EA) redige uma primeira proposta de explicação contextualizada.
+5. **Quality Gate (Validador)**: O `ValidatorAgent` (VA) audita se a explicação condiz com os dados ou se houve alucinação, atribuindo uma nota de 0 a 10.
+   - **Se nota >= 7.0**: Aprovado! Salva a mensagem no histórico e entrega ao usuário.
+   - **Se nota < 7.0**: O validador envia as correções de volta para o EA reescrever (até 3 tentativas). Se esgotar as tentativas, ativa o fallback gracioso informando que a nota foi abaixo do ideal sem travar o sistema host.
+
 ---
 
-## 2. Diagrama de Classes e Protocolos
+## 2. Mapa Estrutural de Classes e Protocolos
 
+#### A. Diagrama Formal de Classes (Mermaid)
 ```mermaid
 classDiagram
     direction TB
 
     class LLMProvider {
         <<Protocol (PEP 544)>>
-        +complete(prompt: str, system_prompt: str, **kwargs) str
-        +acomplete(prompt: str, system_prompt: str, **kwargs) str
+        +generate(prompt: str, system_prompt: str, **kwargs) str
+        +agenerate(prompt: str, system_prompt: str, **kwargs) str
     }
 
     class ContextRetriever {
@@ -170,6 +232,34 @@ classDiagram
     ExplanationLayer o-- SessionStore
     ExplanationLayer o-- LLMProvider
     BaseAgent o-- Tool
+```
+
+#### B. Mapa Estrutural Rápido (Texto Monoespaçado)
+```text
+==========================================================================================================
+MAPA DE CLASSES DO FRAMEWORK
+==========================================================================================================
+
+ [ Interfaces Base (Protocolos) ]
+ ├── LLMProvider               -> Contrato de chamada ao LLM: generate(prompt) -> str
+ ├── ContextRetriever          -> Contrato de busca de contexto: retrieve_context(keys) -> dict
+ └── SessionStore              -> Contrato de persistência de chat: get_history(), append_message()
+
+ [ Implementações de Armazenamento (SessionStore) ]
+ ├── InMemorySessionStore      -> Guarda o histórico em RAM (ideal para testes rápidos)
+ └── SQLiteSessionStore        -> Salva em arquivo .db local nativo (o desenvolvedor audita via SQL)
+
+ [ Agentes (Herfam de BaseAgent) ]
+ ├── ContextManagerAgent (CMA) -> Consulta manuais e esquemas operacionais
+ ├── ArtifactsAgent (AA)       -> Processa SHAP, LIME e predições numéricas
+ ├── ExplainerAgent (EA)       -> Sintetiza a narrativa final contextualizada em linguagem natural
+ ├── ValidatorAgent (VA)       -> Quality Gate (LLM-as-a-Judge com scoring 0-10 e crítica de refinamento)
+ └── SpecializedAgent (SA)     -> Agente extra plugado pelo desenvolvedor para subsistemas específicos
+
+ [ Camadas de Orquestração e Fachada ]
+ ├── OrchestratorEngine        -> Motor interno que executa o grafo assíncrono e o loop de validação
+ └── ExplanationLayer          -> Ponto de entrada amigável para o dev (Fachada DX)
+==========================================================================================================
 ```
 
 ---
