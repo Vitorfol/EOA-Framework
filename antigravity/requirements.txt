@@ -48,8 +48,8 @@ FR-03: Agent Lifecycle & Dynamic Registry
     - Support for loading agent prompts from strings, .txt files, .md files,
       or dynamic Python callables.
 
-FR-04: LLM Provider Abstraction (3 Connection Modes)
-    - Abstract LLMProvider protocol (PEP 544).
+FR-04: LLM Abstraction & Protocol (3 Connection Modes)
+    - Abstract LLM protocol (PEP 544, with LLMProvider alias).
     - Mode 1 (Direct Credentials): Pass provider, api_key, model.
     - Mode 2 (BYO Client): Pass an already instantiated client (genai.Client, OpenAI, LiteLLM).
     - Mode 3 (Custom Callable): Pass a custom python function `def fn(prompt: str) -> str`.
@@ -77,7 +77,7 @@ FR-07: Developer CLI
 3. NON-FUNCTIONAL REQUIREMENTS (NFR)
 --------------------------------------------------------------------------------
 NFR-01: Zero Heavy Core Dependencies: Core depends only on pydantic >= 2.0.
-NFR-02: Python Compatibility: Support Python 3.10, 3.11, 3.12, 3.13+.
+NFR-02: Python Compatibility: Support Python 3.11, 3.12, 3.13+.
 NFR-03: Performance & Latency: Engine overhead under 15ms (excluding external LLM calls).
 NFR-04: Robust Error Handling: Every agent step produces structured trace logs; failures trigger
         predictable fallback responses rather than unhandled exceptions in the client host.

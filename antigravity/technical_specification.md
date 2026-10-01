@@ -121,7 +121,7 @@ FLUXO DE EXECUÇÃO DETALHADO DO EOA (ORQUESTRAÇÃO E QUALITY GATE)
 classDiagram
     direction TB
 
-    class LLMProvider {
+    class LLM {
         <<Protocol (PEP 544)>>
         +generate(prompt: str, system_prompt: str, **kwargs) str
         +agenerate(prompt: str, system_prompt: str, **kwargs) str
@@ -160,32 +160,32 @@ classDiagram
         +role: str
         +prompt_template: str | Path | Callable
         +tools: list~Tool~
-        +run(state: AgentState, llm: LLMProvider) AgentResult
+        +run(state: AgentState, llm: LLM) AgentResult
     }
 
     class ContextManagerAgent {
         -retriever: ContextRetriever
         +set_retriever(retriever: ContextRetriever) None
-        +run(state: AgentState, llm: LLMProvider) AgentResult
+        +run(state: AgentState, llm: LLM) AgentResult
     }
 
     class ArtifactsAgent {
-        +run(state: AgentState, llm: LLMProvider) AgentResult
+        +run(state: AgentState, llm: LLM) AgentResult
     }
 
     class ExplainerAgent {
-        +run(state: AgentState, llm: LLMProvider) AgentResult
+        +run(state: AgentState, llm: LLM) AgentResult
     }
 
     class ValidatorAgent {
         +threshold: float
         +max_refinements: int
-        +run(state: AgentState, llm: LLMProvider) ValidationResult
+        +run(state: AgentState, llm: LLM) ValidationResult
     }
 
     class SpecializedAgent {
         +domain_identifier: str
-        +run(state: AgentState, llm: LLMProvider) AgentResult
+        +run(state: AgentState, llm: LLM) AgentResult
     }
 
     class SessionStore {
@@ -208,7 +208,7 @@ classDiagram
         -orchestrator: OrchestratorEngine
         -agents: dict~str, BaseAgent~
         -session_store: SessionStore
-        -llm: LLMProvider
+        -llm: LLM
         +create_default_agents() None
         +register_agent(agent: BaseAgent) None
         +remove_agent(name: str) None
@@ -230,7 +230,7 @@ classDiagram
 
     ExplanationLayer o-- BaseAgent
     ExplanationLayer o-- SessionStore
-    ExplanationLayer o-- LLMProvider
+    ExplanationLayer o-- LLM
     BaseAgent o-- Tool
 ```
 
@@ -241,7 +241,7 @@ MAPA DE CLASSES DO FRAMEWORK
 ==========================================================================================================
 
  [ Interfaces Base (Protocolos) ]
- ├── LLMProvider               -> Contrato de chamada ao LLM: generate(prompt) -> str
+ ├── LLM                       -> Contrato de chamada ao LLM (PEP 544): generate(prompt) -> str
  ├── ContextRetriever          -> Contrato de busca de contexto: retrieve_context(keys) -> dict
  └── SessionStore              -> Contrato de persistência de chat: get_history(), append_message()
 
