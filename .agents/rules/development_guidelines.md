@@ -25,3 +25,10 @@ Este documento define os princípios sagrados que devem guiar toda linha de cód
 - **Princípio da Responsabilidade Única (SRP)**: Cada módulo e agente tem uma única fronteira de responsabilidade.
 - **Dependências Mínimas no Core**: O core do `eoa` deve depender **estritamente apenas do Pydantic (>= 2.0)**. Tudo o que for provedor externo (Google GenAI, OpenAI, etc.) ou CLI deve ser opcional via *extras* no `pyproject.toml`.
 - **Desacoplamento Fail-Safe ("Unplugged")**: A camada de agentes é um aditivo inteligente, nunca um ponto único de falha (*Single Point of Failure*). Exceções em agentes ou LLM são capturadas e tratadas com degradação graciosa.
+
+---
+
+## 4. Zero Código Legado e Zero Compatibilidade Prematura (Greenfield v0.1.0)
+- **Sem Shims ou Aliases de Transição**: Estamos na versão `0.1.0`. Não existem clientes externos ou bases legadas. NUNCA introduzir ou manter aliases temporários, wrappers obsoletos, getters/setters artificiais ou shims de compatibilidade apenas para conciliar rascunhos antigos ou discussões superadas.
+- **Refatoração Direta e Definitiva**: Quando uma decisão de design ou nomenclatura canônica for tomada, a refatoração deve ser limpa, profunda e direta no core e nos testes.
+- **Cada Linha Conta**: Cada linha de código deve carregar valor real, legibilidade imediata e justificativa técnica sólida para a ICSE. Zero bloat.

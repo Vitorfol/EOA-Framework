@@ -3,8 +3,8 @@
 import pytest
 
 import eoa
-from eoa.llm.base import LLM, LLMProvider
-from tests.mocks.mock_llm import MockLLM, MockLLMProvider
+from eoa.llm.base import LLM
+from tests.mocks.mock_llm import MockLLM
 
 
 def test_package_metadata() -> None:
@@ -17,7 +17,6 @@ def test_mock_llm_implements_protocol() -> None:
     """Ensure MockLLM implements the runtime-checkable LLM protocol."""
     mock = MockLLM()
     assert isinstance(mock, LLM)
-    assert isinstance(mock, LLMProvider)  # backwards compatibility alias
 
 
 def test_mock_llm_default_response() -> None:
@@ -88,9 +87,7 @@ def test_mock_llm_canned_responses() -> None:
 
 def test_mock_llm_custom_generator() -> None:
     """Test custom generator callable."""
-    mock = MockLLM(
-        custom_generator=lambda prompt, sys: f"ECHO: {prompt} | SYS: {sys}"
-    )
+    mock = MockLLM(custom_generator=lambda prompt, sys: f"ECHO: {prompt} | SYS: {sys}")
 
     res = mock.generate("Test prompt", system_prompt="Sys prompt")
     assert res == "ECHO: Test prompt | SYS: Sys prompt"
@@ -125,7 +122,7 @@ def test_mock_llm_reset() -> None:
     assert mock.generate("After reset") == "Mocked LLM response"
 
 
-def test_conftest_mock_fixture(mock_llm: MockLLMProvider) -> None:
+def test_conftest_mock_fixture(mock_llm: MockLLM) -> None:
     """Verify that the mock_llm pytest fixture operates correctly."""
     assert isinstance(mock_llm, LLM)
     assert mock_llm.generate("Hello") == "Default mock explanation response."

@@ -114,6 +114,73 @@ FLUXO DE EXECUÇÃO DETALHADO DO EOA (ORQUESTRAÇÃO E QUALITY GATE)
 
 ---
 
+### 1.2 Padrões de Integração da Camada: Modo Direto (Push) vs. Modo Baseado em Consulta (Pull / Query-Based)
+
+Para alinhar com a tese formal do paper do SBES ("*query-based integration where agents retrieve information without intrusive modifications*") e ao mesmo tempo oferecer simplicidade máxima ("Developer is King"), o framework suporta dois padrões complementares de integração:
+
+```text
+==========================================================================================================
+PADRÕES DE INTEGRAÇÃO DO FRAMEWORK EOA
+==========================================================================================================
+
+ [ PADRÃO A: MODO DIRETO (Push) - Simplicidade Imediata ]
+ ┌────────────────────────────────────────────────────────┐
+ │ Aplicação do Desenvolvedor (Backend / FastAPI)         │
+ │ Já executou o modelo de ML e tem o SHAP em mãos        │
+ └──────────────────────────┬─────────────────────────────┘
+                            │ Passa os dados brutos: explain(prediction={...}, xai={...})
+                            ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ EOA Layer valida os dados e entrega aos Agentes        │
+ └────────────────────────────────────────────────────────┘
+
+ [ PADRÃO B: MODO BASEADO EM CONSULTA (Pull / Autônomo do Paper) ]
+ ┌────────────────────────────────────────────────────────┐
+ │ Aplicação do Desenvolvedor (Backend Industrial)        │
+ │ Passa apenas o identificador: explain(incident_id=...) │
+ └──────────────────────────┬─────────────────────────────┘
+                            │
+            ┌───────────────┴───────────────────────────────┐
+            ▼                                               ▼
+ ┌──────────────────────────────┐               ┌──────────────────────────────────┐
+ │ ArtifactsAgent (AA)          │               │ ContextManagerAgent (CMA)        │
+ │ Executa Tool/Query no        │               │ Executa Tool/Query na Engenharia │
+ │ Analytics Layer e busca XAI  │               │ de Dados e busca schemas/manuais │
+ └──────────────┬───────────────┘               └────────────────┬─────────────────┘
+                │                                                │
+                └───────────────────────┬────────────────────────┘
+                                        │ Montam internamente os contratos normalizados:
+                                        ▼ PredictionArtifact, XAIArtifact e DomainContext
+ ┌────────────────────────────────────────────────────────┐
+ │ ExplainerAgent (EA) e ValidatorAgent (VA)              │
+ └────────────────────────────────────────────────────────┘
+==========================================================================================================
+```
+
+- **A diferença é quem instancia o contrato**:
+  - No Modo Direto: O desenvolvedor passa o dicionário e o EOA preenche o contrato.
+  - No Modo Autônomo (Query-Based): Os agentes (AA e CMA) executam suas Tools/Consultas e eles mesmos preenchem o contrato antes de enviar ao Explainer.
+- **Decisão Arquitetural**: A implementação das ferramentas de consulta autônoma será feita no **Épico 06 (Agentes e Tools)** e **Épico 07 (Orquestração)**.
+
+---
+
+### 1.3 Defesa Arquitetural: EOA vs. Chamada Direta de LLM (Por que não apenas Prompt Engineering?)
+
+Uma pergunta frequente em revisões de Engenharia de Software (ICSE) é: *"Se o cliente já tem a predição e o XAI no modo direto, por que ele não faz apenas uma chamada com prompt formatado para o ChatGPT/Gemini?"*
+
+A resposta técnica baseia-se em 4 pilares de Engenharia de Sistemas Críticos:
+
+1. **Prevenção de Alucinações com Quality Gate Fechado (`ValidatorAgent`)**:
+   Uma chamada crua de LLM é estocástica e não supervisionada. O modelo pode inventar causas mecânicas inexistentes com alta convicção. No EOA, a narrativa nunca é entregue sem passar pela auditoria do Validador, que aplica nota e aciona refinamento autônomo com feedback delimitado.
+2. **Ponte Semântica de Domínio (`ContextManagerAgent`)**:
+   Modelos de linguagem não conhecem siglas proprietárias de plantas industriais (ex.: `PS1`, `EPS1`). O CMA ingere esquemas e manuais de engenharia, resolvendo a correlação física sem inchar a janela de contexto.
+3. **Desacoplamento Fail-Safe ("Unplugged")**:
+   Falhas de rede, timeouts ou rate limits na API de LLM derrubariam o backend do cliente. O EOA garante degradação graciosa: entrega uma resposta de fallback determinística com os dados brutos e flag `fallback_used = True`, mantendo a operação da planta intacta.
+4. **Rastreabilidade de Auditoria (Compliance Industrial)**:
+   O `AgentStepTrace` e o `SessionStore` (SQLite local auditável) mantêm registro formal de cada agente, tempo de execução e justificativas técnicas, atendendo a exigências de conformidade regulatória.
+
+---
+
 ## 2. Mapa Estrutural de Classes e Protocolos
 
 #### A. Diagrama Formal de Classes (Mermaid)
@@ -373,10 +440,11 @@ class XAIArtifact(BaseModel):
 Representa o contexto operacional e metadados de domínio (sem vetor denso, puramente estruturado).
 ```python
 class DomainContext(BaseModel):
-    sensor_dictionary: Dict[str, str] = Field(default_factory=dict)  # Ex: {"PS1": "Pressão axial da bomba principal"}
-    operational_thresholds: Dict[str, Any] = Field(default_factory=dict)
-    documentation_snippets: Dict[str, str] = Field(default_factory=dict)  # Ex: {"cooling_manual": "Capítulo 4: Troca térmica"}
-    system_hierarchy: Optional[Dict[str, Any]] = None
+    variables: Dict[str, str] = Field(default_factory=dict)  # Ex: {"PS1": "Pressão"} ou {"FICO": "Score"}
+    thresholds: Dict[str, Any] = Field(default_factory=dict)
+    documents: Dict[str, str] = Field(default_factory=dict)  # Ex: {"manual": "Procedimentos"}
+    hierarchy: Dict[str, Any] = Field(default_factory=dict)  # Taxonomia de subsistemas
+    schemas: Dict[str, Any] = Field(default_factory=dict)    # Schemas de datasets/fontes de dados
 ```
 
 ### 3.4 `ExplanationResponse`
@@ -390,10 +458,10 @@ class AgentStepTrace(BaseModel):
 
 class ExplanationResponse(BaseModel):
     narrative: str
-    validation_score: float
-    validation_passed: bool
+    validation_score: Optional[float] = None
+    validation_passed: Optional[bool] = None
     validation_critique: Optional[str] = None
-    attempts_used: int
+    attempts_used: int = 1
     fallback_used: bool = False
     execution_trace: list[AgentStepTrace] = Field(default_factory=list)
 ```

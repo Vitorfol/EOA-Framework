@@ -101,7 +101,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
    - **Épicos 01 e 02**: Definem a estrutura de imports e os schemas de dados (`PredictionArtifact`, `XAIArtifact`, `DomainContext`, `ExplanationResponse`). Sem eles, nenhum módulo compila ou roda testes.
 2. **O que fica destravado em seguida?**
    - **Épico 03 (LLM)**, **Épico 04 (Memória)**, **Épico 05 (Prompts)** e **Épico 06 (Agentes)** são **100% independentes entre si**.
-   - O desenvolvimento do Épico 06 (Agentes) **não depende** do Épico 03 (Conexões reais de LLM), porque os agentes consom o protocolo `LLMProvider` e são testados com o `MockLLMProvider` entregue no Épico 01.
+    - O desenvolvimento do Épico 06 (Agentes) **não depende** do Épico 03 (Conexões reais de LLM), porque os agentes consom o protocolo `LLM` e são testados com o `MockLLM` entregue no Épico 01.
 3. **O que depende de quem para integração?**
    - O **Épico 07 (Orchestrator)** integra os Agentes (Ep 06) com a Memória (Ep 04) e o LLM (Ep 03).
    - O **Épico 08 (ExplanationLayer)** expõe a API final amigável ao usuário.
@@ -128,7 +128,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
   - [x] Criar estrutura `src/eoa/` com todos os submódulos vazios (`agents/`, `llm/`, `memory/`, `engine/`, `prompts/`).
   - [x] Criar pasta `tests/` com `conftest.py` contendo fixtures básicas.
 - [x] **TASK-01.3: Pipeline de Testes e Mock Provider**
-  - [x] Implementar `MockLLM` (`MockLLMProvider`) em `tests/mocks/` para testes determinísticos rápidos sem gastar tokens nem depender de internet.
+  - [x] Implementar `MockLLM` em `tests/mocks/` para testes determinísticos rápidos sem gastar tokens nem depender de internet.
   - [x] Validar execução do `pytest` com sucesso (zero falhas).
 
 ---
@@ -136,15 +136,15 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 📜 ÉPICO 02: Contratos de Dados & Schemas (Pydantic v2)
 > **Objetivo**: Materializar os contratos formais de entrada e saída definidos no paper e na especificação técnica.
 
-- [ ] **TASK-02.1: Modelos de Artefatos Analíticos e XAI (`src/eoa/contracts.py`)**
-  - [ ] Implementar `PredictionArtifact` (modelo preditivo, target, probabilidade/score, status).
-  - [ ] Implementar `XAIArtifact` (método, feature attributions/SHAP/LIME, baselines, metadados).
-  - [ ] Testes unitários para serialização/desserialização e validação de tipos inválidos.
-- [ ] **TASK-02.2: Modelos de Contexto e Resposta (`src/eoa/contracts.py`)**
-  - [ ] Implementar `DomainContext` (dicionário de sensores, limites operacionais, snippets de manuais).
-  - [ ] Implementar `ExplanationResponse` (narrativa, validation_score, validation_passed, execution_trace, fallback_used).
-  - [ ] Implementar `AgentStepTrace` para auditoria e observabilidade passo a passo.
-  - [ ] Testes unitários de validação e constraints de schema.
+- [x] **TASK-02.1: Modelos de Artefatos Analíticos e XAI (`src/eoa/contracts.py`)**
+  - [x] Implementar `PredictionArtifact` (modelo preditivo, target, probabilidade/score, status).
+  - [x] Implementar `XAIArtifact` (método, feature attributions/SHAP/LIME, baselines, metadados).
+  - [x] Testes unitários para serialização/desserialização e validação de tipos inválidos.
+- [x] **TASK-02.2: Modelos de Contexto e Resposta (`src/eoa/contracts.py`)**
+  - [x] Implementar `DomainContext` (dicionário de sensores, limites operacionais, snippets de manuais).
+  - [x] Implementar `ExplanationResponse` (narrativa, validation_score, validation_passed, execution_trace, fallback_used).
+  - [x] Implementar `AgentStepTrace` para auditoria e observabilidade passo a passo.
+  - [x] Testes unitários de validação e constraints de schema.
 
 ---
 
@@ -199,7 +199,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 > **Objetivo**: Implementar as "caixas modulares" do paper com independência funcional.
 
 - [ ] **TASK-06.1: Classes Base (`BaseAgent`, `Tool`, `AgentState`) (`src/eoa/agents/base.py`)**
-  - [ ] Definir ciclo de vida do agente: `run(state: AgentState, llm: LLMProvider) -> AgentResult`.
+  - [ ] Definir ciclo de vida do agente: `run(state: AgentState, llm: LLM) -> AgentResult`.
   - [ ] Definir abstração limpa de `Tool` para agentes que usam ferramentas.
 - [ ] **TASK-06.2: `ContextManagerAgent` (CMA) com `ContextRetriever` Plugável (`src/eoa/agents/context.py`)**
   - [ ] Implementar `StructuredContextRetriever` padrão (lê dicionários e schemas JSON).
@@ -207,6 +207,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
   - [ ] Testes unitários do CMA com recuperação estruturada e com mock de busca vetorial customizada.
 - [ ] **TASK-06.3: `ArtifactsAgent` (AA) (`src/eoa/agents/artifacts.py`)**
   - [ ] Processar predições analíticas e importâncias XAI em resumos técnicos compreensíveis.
+  - [ ] Suporte a ferramentas (tools) para recuperação autônoma de predições e XAI por ID de incidente.
   - [ ] Testes unitários com fixtures de predições reais de manutenção preditiva.
 - [ ] **TASK-06.4: `ExplainerAgent` (EA) (`src/eoa/agents/explainer.py`)**
   - [ ] Sintetizar evidências do AA + contexto do CMA + histórico de chat em narrativa em linguagem natural.
@@ -238,8 +239,9 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 
 - [ ] **TASK-08.1: Implementação da `ExplanationLayer` (`src/eoa/layer.py` & `src/eoa/__init__.py`)**
   - [ ] Métodos limpos: `explain(...)`, `create_session(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `remove_agent(...)`.
+  - [ ] Suporte aos dois modos de consumo: Modo Direto (passando predição/XAI) e Modo Autônomo (passando incident_id).
   - [ ] Função helper `eoa.default_layer(...)` para inicialização imediata em 1 linha.
-  - [ ] Testes de ponta a ponta dos 6 cenários da jornada do desenvolvedor.
+  - [ ] Testes de ponta a ponta dos cenários da jornada do desenvolvedor.
 - [ ] **TASK-08.2: Ferramenta de Linha de Comando (CLI) (`src/eoa/cli.py`)**
   - [ ] Comando `eoa list --agents --prompts` para inspecionar agentes ativos e caminhos de prompts.
   - [ ] Comando `eoa init` para criar pasta padrão de prompts e arquivo de configuração no projeto do dev.

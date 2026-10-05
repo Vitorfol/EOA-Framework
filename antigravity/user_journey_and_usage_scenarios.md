@@ -17,6 +17,7 @@ Este documento detalha **como o desenvolvedor vai usar o framework no dia a dia*
 | **Cenário 4** | **Chat Multi-Turn e Banco SQLite**: Conversar com o agente e auditar o `.db`. | 💬 2 min |
 | **Cenário 5** | **Manuais Técnicos Gigantes**: Busca estruturada padrão vs. Plugando RAG. | 📚 4 min |
 | **Cenário 6** | **Integração num Sistema Real (FastAPI / Backend Legado)**: Degradação graciosa. | 🏭 5 min |
+| **Cenário 7** | **Modo Autônomo com Tools (Query-Based)**: Passar apenas o ID do alerta e deixar agentes buscarem. | 🤖 3 min |
 
 ---
 
@@ -239,4 +240,33 @@ async def monitorar_sensor(leitura: dict):
         "auditoria_score": explicacao.validation_score,
         "fallback_utilizado": explicacao.fallback_used
     }
+```
+
+---
+
+## 🤖 Cenário 7: Modo Autônomo com Tools (Query-Based Integration)
+
+O desenvolvedor **não quer calcular ou passar o SHAP nem a predição na mão**. Ele prefere que os agentes recuperem esses dados autonomamente através de ferramentas/funções registradas (cumprindo a promessa do paper do SBES):
+
+```python
+import eoa
+
+layer = eoa.default_layer(provider="gemini", api_key="...")
+
+# 1. Registra ferramentas de recuperação no ArtifactsAgent e ContextManagerAgent:
+aa = layer.get_agent("AA")
+aa.register_tool(minha_funcao_que_busca_shap_no_banco_ou_mlflow)
+
+cma = layer.get_agent("CMA")
+cma.register_tool(minha_funcao_que_busca_sensores_no_scada)
+
+# 2. Na hora de explicar, o dev passa apenas o identificador da ocorrência:
+response = layer.explain(
+    incident_id="alerta_turbina_981",
+    user_query="O que causou este alerta e qual a criticidade?"
+)
+
+# 3. Os agentes executaram as tools, montaram os contratos internamente,
+# sintetizaram e validaram a explicação de forma 100% autônoma!
+print(response.narrative)
 ```

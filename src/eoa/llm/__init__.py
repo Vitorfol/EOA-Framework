@@ -1,5 +1,5 @@
 """LLM connectivity and model abstractions for EOA."""
 
-from eoa.llm.base import LLM, LLMProvider
+from eoa.llm.base import LLM
 
-__all__ = ["LLM", "LLMProvider"]
+__all__ = ["LLM"]

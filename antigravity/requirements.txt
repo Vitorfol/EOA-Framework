@@ -49,7 +49,7 @@ FR-03: Agent Lifecycle & Dynamic Registry
       or dynamic Python callables.
 
 FR-04: LLM Abstraction & Protocol (3 Connection Modes)
-    - Abstract LLM protocol (PEP 544, with LLMProvider alias).
+    - Abstract LLM protocol (PEP 544: `generate` and `agenerate`).
     - Mode 1 (Direct Credentials): Pass provider, api_key, model.
     - Mode 2 (BYO Client): Pass an already instantiated client (genai.Client, OpenAI, LiteLLM).
     - Mode 3 (Custom Callable): Pass a custom python function `def fn(prompt: str) -> str`.

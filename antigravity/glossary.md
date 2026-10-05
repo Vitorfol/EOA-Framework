@@ -15,7 +15,7 @@ Este documento estabelece a nomenclatura padronizada do framework **EOA**, defin
 | **`ExplainerAgent` (EA)** | O agente que recebe as evidências do AA e o contexto do CMA para **escrever a narrativa final em linguagem natural**, explicando o alerta e sugerindo ações recomendadas. | Nome canônico do paper: *Explainer Agent*. É o sintetizador da explicação. |
 | **`ValidatorAgent` (VA)** | O agente que atua como **portão de qualidade (Quality Gate)**. Ele audita a explicação gerada pelo EA comparando-a com as evidências técnicas do AA e do CMA, aplicando uma nota e apontando erros/alucinações. | Nome canônico do paper: *Validator Agent*. Garante a fidelidade técnica. |
 | **`SpecializedAgent` (SA)** | Classe base para qualquer agente extra que o desenvolvedor queira criar para um subsistema específico (ex: especialista em vibração de mancais, especialista em trocadores de calor). | Nome canônico do paper: *Specialized Agents*. |
-| **`LLM`** | Protocolo formal (PEP 544) que padroniza a geração de texto (`generate` / `agenerate`) para qualquer modelo, API externa, função própria do usuário ou Mock de teste (mantendo `LLMProvider` como alias). | Unifica "Language Model" de forma universal, sem sugerir que o usuário precisa ser um "provedor" externo. |
+| **`LLM`** | Protocolo formal (PEP 544) que padroniza a geração de texto (`generate` / `agenerate`) para qualquer modelo, API externa, função própria do usuário ou Mock de teste. | Unifica "Language Model" de forma universal, sem sugerir que o usuário precisa ser um "provedor" externo. |
 
 ---
 
