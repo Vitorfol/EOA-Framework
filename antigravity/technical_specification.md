@@ -440,10 +440,11 @@ class XAIArtifact(BaseModel):
 Representa o contexto operacional e metadados de domínio (sem vetor denso, puramente estruturado).
 ```python
 class DomainContext(BaseModel):
-    sensor_dictionary: Dict[str, str] = Field(default_factory=dict)  # Ex: {"PS1": "Pressão axial da bomba principal"}
-    operational_thresholds: Dict[str, Any] = Field(default_factory=dict)
-    documentation_snippets: Dict[str, str] = Field(default_factory=dict)  # Ex: {"cooling_manual": "Capítulo 4: Troca térmica"}
-    system_hierarchy: Optional[Dict[str, Any]] = None
+    variables: Dict[str, str] = Field(default_factory=dict)  # Ex: {"PS1": "Pressão"} ou {"FICO": "Score"}
+    thresholds: Dict[str, Any] = Field(default_factory=dict)
+    documents: Dict[str, str] = Field(default_factory=dict)  # Ex: {"manual": "Procedimentos"}
+    hierarchy: Dict[str, Any] = Field(default_factory=dict)  # Taxonomia de subsistemas
+    schemas: Dict[str, Any] = Field(default_factory=dict)    # Schemas de datasets/fontes de dados
 ```
 
 ### 3.4 `ExplanationResponse`
@@ -457,10 +458,10 @@ class AgentStepTrace(BaseModel):
 
 class ExplanationResponse(BaseModel):
     narrative: str
-    validation_score: float
-    validation_passed: bool
+    validation_score: Optional[float] = None
+    validation_passed: Optional[bool] = None
     validation_critique: Optional[str] = None
-    attempts_used: int
+    attempts_used: int = 1
     fallback_used: bool = False
     execution_trace: list[AgentStepTrace] = Field(default_factory=list)
 ```

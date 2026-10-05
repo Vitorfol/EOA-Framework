@@ -14,7 +14,7 @@ objects and plain Python dictionaries).
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -71,6 +71,12 @@ class PredictionArtifact(BaseModel):
         default_factory=dict,
         description="Arbitrary additional model execution metadata.",
     )
+
+    @field_validator("metadata", mode="before")
+    @classmethod
+    def _coerce_metadata(cls, v: Any) -> Any:
+        """Coerce None metadata into an empty dictionary."""
+        return v if v is not None else {}
 
     @classmethod
     def from_input(
@@ -134,6 +140,12 @@ class XAIArtifact(BaseModel):
         description="Raw or algorithm-specific intermediate artifacts.",
     )
 
+    @field_validator("feature_attributions", "raw_artifacts", mode="before")
+    @classmethod
+    def _coerce_dicts(cls, v: Any) -> Any:
+        """Coerce None dictionaries into empty dictionaries."""
+        return v if v is not None else {}
+
     def top_features(
         self, n: int = 5, absolute: bool = True
     ) -> list[tuple[str, float]]:
@@ -173,68 +185,96 @@ class XAIArtifact(BaseModel):
 
 
 class DomainContext(BaseModel):
-    """Represents operational context and technical metadata.
+    """Represents domain context, technical metadata, and reference rules.
 
     Managed by ContextManagerAgent (CMA) without requiring dense vector RAG.
     Can be initialized statically at startup and enriched iteratively per incident.
+    Domain-agnostic: supports predictive maintenance, finance, healthcare, and IT.
 
     Attributes:
-        sensor_dictionary: Mapping of variable acronyms to physical descriptions.
-        operational_thresholds: Safe operating ranges or engineering limits.
-        documentation_snippets: Technical manual excerpts or procedures.
-        system_hierarchy: Optional hierarchical taxonomy of subsystems.
+        variables: Mapping of variable, sensor, or feature names to descriptions.
+        thresholds: Safe operating ranges, critical limits, or domain thresholds.
+        documents: Excerpts from technical manuals, guidelines, or procedures.
+        hierarchy: Optional hierarchical taxonomy of subsystems or entities.
+        schemas: Dataset schemas, column specifications, or data source metadata.
 
     Example:
         >>> context = DomainContext()
-        >>> context.add_sensor("PS1", "Axial pressure of main cooling pump")
+        >>> context.add_variable("PS1", "Axial pressure of main cooling pump")
         >>> context.add_document("manual", "Thermal dissipation guidelines...")
     """
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
-    sensor_dictionary: dict[str, str] = Field(
+    variables: dict[str, str] = Field(
         default_factory=dict,
-        description="Mapping of variable acronyms/codes to physical definitions.",
+        description="Mapping of variable/feature/sensor codes to descriptions.",
     )
-    operational_thresholds: dict[str, Any] = Field(
+    thresholds: dict[str, Any] = Field(
         default_factory=dict,
-        description="Engineering threshold boundaries or safe operating ranges.",
+        description="Threshold boundaries, safe operating ranges, or limits.",
     )
-    documentation_snippets: dict[str, str] = Field(
+    documents: dict[str, str] = Field(
         default_factory=dict,
-        description="Relevant excerpts from technical manuals or operating procedures.",
+        description="Relevant excerpts from manuals, policies, or procedures.",
     )
-    system_hierarchy: dict[str, Any] | None = Field(
-        default=None,
-        description="Optional tree or hierarchy describing subsystem relationships.",
+    hierarchy: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional tree describing subsystem or entity taxonomy.",
+    )
+    schemas: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Dataset schemas, column specifications, or data source metadata.",
     )
 
-    def add_sensor(self, sensor_id: str, description: str) -> None:
-        """Add or update a sensor definition in the dictionary.
+    @field_validator(
+        "variables",
+        "thresholds",
+        "documents",
+        "hierarchy",
+        "schemas",
+        mode="before",
+    )
+    @classmethod
+    def _coerce_context_dicts(cls, v: Any) -> Any:
+        """Coerce None context dictionaries into empty dictionaries."""
+        return v if v is not None else {}
+
+    def add_variable(self, name: str, description: str) -> None:
+        """Add or update a variable or feature definition.
 
         Args:
-            sensor_id: Acronym or tag of the sensor/variable (e.g., 'PS1').
-            description: Physical domain description of what the sensor measures.
+            name: Identifier or tag of the variable/feature (e.g., 'PS1', 'FICO').
+            description: Domain description of what the variable represents.
         """
-        self.sensor_dictionary[sensor_id] = description
+        self.variables[name] = description
 
     def add_document(self, document_id: str, content: str) -> None:
-        """Add or update a documentation snippet.
+        """Add or update a documentation snippet or manual section.
 
         Args:
-            document_id: Key or title for the document section (e.g., 'cooling_manual').
+            document_id: Key or title for the document section (e.g., 'manual').
             content: Textual content or excerpt of the document.
         """
-        self.documentation_snippets[document_id] = content
+        self.documents[document_id] = content
 
     def add_threshold(self, metric: str, threshold_value: Any) -> None:
-        """Add or update an operational threshold.
+        """Add or update an operational or domain threshold.
 
         Args:
-            metric: The name or sensor key corresponding to the threshold.
-            threshold_value: Value or range representing the operational limit.
+            metric: The name or key corresponding to the threshold.
+            threshold_value: Value, range, or criteria representing the limit.
         """
-        self.operational_thresholds[metric] = threshold_value
+        self.thresholds[metric] = threshold_value
+
+    def add_schema(self, dataset_name: str, schema_definition: dict[str, Any]) -> None:
+        """Add or update a dataset or table schema definition.
+
+        Args:
+            dataset_name: Identifier for the dataset or data source.
+            schema_definition: Dictionary defining schema, column types, or specs.
+        """
+        self.schemas[dataset_name] = schema_definition
 
     def merge(self, other: DomainContext | dict[str, Any]) -> DomainContext:
         """Create a new DomainContext by merging current data with another context.
@@ -246,22 +286,27 @@ class DomainContext(BaseModel):
             A new DomainContext instance containing combined and updated entries.
         """
         other_obj = self.from_input(other)
-        merged_sensors = {**self.sensor_dictionary, **other_obj.sensor_dictionary}
+        merged_vars = {**self.variables, **other_obj.variables}
         merged_thresholds = {
-            **self.operational_thresholds,
-            **other_obj.operational_thresholds,
+            **self.thresholds,
+            **other_obj.thresholds,
         }
         merged_docs = {
-            **self.documentation_snippets,
-            **other_obj.documentation_snippets,
+            **self.documents,
+            **other_obj.documents,
         }
-        merged_hierarchy = other_obj.system_hierarchy or self.system_hierarchy
+        merged_hierarchy = other_obj.hierarchy or self.hierarchy
+        merged_schemas = {
+            **self.schemas,
+            **other_obj.schemas,
+        }
 
         return DomainContext(
-            sensor_dictionary=merged_sensors,
-            operational_thresholds=merged_thresholds,
-            documentation_snippets=merged_docs,
-            system_hierarchy=merged_hierarchy,
+            variables=merged_vars,
+            thresholds=merged_thresholds,
+            documents=merged_docs,
+            hierarchy=merged_hierarchy,
+            schemas=merged_schemas,
         )
 
     @classmethod
@@ -320,6 +365,12 @@ class AgentStepTrace(BaseModel):
         description="Optional diagnostic data, intermediate scores, or parameters.",
     )
 
+    @field_validator("details", mode="before")
+    @classmethod
+    def _coerce_details(cls, v: Any) -> Any:
+        """Coerce None details into an empty dictionary."""
+        return v if v is not None else {}
+
 
 class ExplanationResponse(BaseModel):
     """Final contextualized response delivered by Explanation Layer (Level 3).
@@ -329,8 +380,8 @@ class ExplanationResponse(BaseModel):
 
     Attributes:
         narrative: Synthesized natural language explanation and recommendations.
-        validation_score: Quality score by ValidatorAgent (0.0 to 10.0 scale).
-        validation_passed: Flag indicating whether validation score reached threshold.
+        validation_score: Optional quality score evaluated by ValidatorAgent.
+        validation_passed: Optional flag indicating whether validation passed.
         validation_critique: Optional feedback or critique from ValidatorAgent.
         attempts_used: Total number of synthesis/refinement loops executed (>= 1).
         fallback_used: Flag indicating if emergency graceful degradation was triggered.
@@ -347,19 +398,20 @@ class ExplanationResponse(BaseModel):
 
     model_config = ConfigDict(extra="allow", populate_by_name=True)
 
+    min_score: ClassVar[float] = 0.0
+    max_score: ClassVar[float] = 10.0
+
     narrative: str = Field(
         ...,
         description="Natural language explanation and operational recommendations.",
     )
-    validation_score: float = Field(
-        ...,
-        description="Fidelity score evaluated by ValidatorAgent (0.0 to 10.0 scale).",
-        ge=0.0,
-        le=10.0,
+    validation_score: float | None = Field(
+        default=None,
+        description="Quality score assessed by ValidatorAgent (typically 0.0 to 10.0).",
     )
-    validation_passed: bool = Field(
-        ...,
-        description="Whether the response satisfied the technical fidelity threshold.",
+    validation_passed: bool | None = Field(
+        default=None,
+        description="Flag indicating if validation passed (None if skipped).",
     )
     validation_critique: str | None = Field(
         default=None,
@@ -379,8 +431,22 @@ class ExplanationResponse(BaseModel):
         description="Sequential trace records of all agents involved in this turn.",
     )
 
+    @field_validator("execution_trace", mode="before")
+    @classmethod
+    def _coerce_trace(cls, v: Any) -> Any:
+        """Coerce None execution_trace into an empty list."""
+        return v if v is not None else []
+
     @field_validator("validation_score")
     @classmethod
-    def round_score(cls, v: float) -> float:
-        """Round validation score to two decimal places for consistency."""
+    def round_and_validate_score(cls, v: float | None) -> float | None:
+        """Validate bounds and round validation score to two decimal places."""
+        if v is None:
+            return None
+        if v < cls.min_score or v > cls.max_score:
+            msg = (
+                f"validation_score must be between {cls.min_score} and "
+                f"{cls.max_score}, got {v}"
+            )
+            raise ValueError(msg)
         return round(v, 2)

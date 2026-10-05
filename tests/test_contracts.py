@@ -56,6 +56,20 @@ def test_prediction_artifact_full() -> None:
     assert pred.metadata["cycle_id"] == 4091
 
 
+def test_prediction_artifact_allows_arbitrary_extra_fields() -> None:
+    """Verify that arbitrary extra fields are preserved due to extra='allow'."""
+    pred = PredictionArtifact.model_validate(
+        {
+            "target_variable": "Cooler Condition",
+            "predicted_value": 0,
+            "custom_metric": 42.5,
+            "batch_tag": "BATCH_2026_Q1",
+        }
+    )
+    assert pred.custom_metric == 42.5
+    assert pred.batch_tag == "BATCH_2026_Q1"
+
+
 def test_prediction_artifact_probability_boundaries() -> None:
     """Ensure confidence_or_probability rejects numbers outside [0.0, 1.0]."""
     # Valid boundaries
@@ -161,63 +175,96 @@ def test_xai_artifact_from_input_polymorphic() -> None:
 # ==============================================================================
 
 
+def test_domain_context_generic_attributes() -> None:
+    """Verify that DomainContext supports generic variables and thresholds."""
+    ctx = DomainContext(
+        variables={"FICO": "Credit score metric", "PS1": "Pump pressure"},
+        thresholds={"min_score": 600, "PS1_max": 200.0},
+        documents={"policy": "Risk assessment guidelines"},
+        hierarchy={"subsystem": "Hydraulics"},
+        schemas={"sensor_series": {"sampling_rate": "100Hz"}},
+    )
+    assert ctx.variables["FICO"] == "Credit score metric"
+    assert ctx.variables["PS1"] == "Pump pressure"
+    assert ctx.thresholds["min_score"] == 600
+    assert ctx.documents["policy"] == "Risk assessment guidelines"
+    assert ctx.hierarchy == {"subsystem": "Hydraulics"}
+    assert ctx.schemas["sensor_series"] == {"sampling_rate": "100Hz"}
+
+    ctx.add_variable("DTI", "Debt to income ratio")
+    assert ctx.variables["DTI"] == "Debt to income ratio"
+
+
 def test_domain_context_iterative_enrichment() -> None:
     """Verify that DomainContext can be enriched incrementally."""
     ctx = DomainContext()
-    assert ctx.sensor_dictionary == {}
+    assert ctx.variables == {}
+    assert ctx.thresholds == {}
+    assert ctx.documents == {}
+    assert ctx.schemas == {}
 
-    ctx.add_sensor("PS1", "Main pump axial pressure")
-    ctx.add_sensor("EPS1", "Motor electrical power consumption")
-    assert len(ctx.sensor_dictionary) == 2
-    assert ctx.sensor_dictionary["PS1"] == "Main pump axial pressure"
+    ctx.add_variable("PS1", "Main pump axial pressure")
+    ctx.add_variable("EPS1", "Motor electrical power consumption")
+    assert len(ctx.variables) == 2
+    assert ctx.variables["PS1"] == "Main pump axial pressure"
 
-    ctx.add_document("cooling_manual", "Chapter 4: Thermal dissipation guidelines")
-    assert "cooling_manual" in ctx.documentation_snippets
+    ctx.add_document("cooling_manual", "Thermal dissipation guidelines")
+    assert "cooling_manual" in ctx.documents
 
     ctx.add_threshold("PS1_max", 180.0)
-    assert ctx.operational_thresholds["PS1_max"] == 180.0
+    assert ctx.thresholds["PS1_max"] == 180.0
+
+    ctx.add_schema("telemetry", {"frequency": "100Hz", "type": "float"})
+    assert ctx.schemas["telemetry"]["frequency"] == "100Hz"
 
 
 def test_domain_context_merge() -> None:
     """Verify merging a static global context with incident-specific metadata."""
     global_ctx = DomainContext(
-        sensor_dictionary={"PS1": "Pressure 1", "TS1": "Temperature 1"},
-        operational_thresholds={"PS1_max": 200.0},
-        documentation_snippets={"base_doc": "Base manual"},
+        variables={"PS1": "Pressure 1", "TS1": "Temperature 1"},
+        thresholds={"PS1_max": 200.0},
+        documents={"base_doc": "Base manual"},
+        schemas={"base_table": {"columns": ["time", "val"]}},
     )
 
     incident_ctx = {
-        "sensor_dictionary": {
+        "variables": {
             "TS1": "Temperature 1 (Recalibrated)",
             "VS1": "Vibration 1",
         },
-        "documentation_snippets": {"alert_log": "Incident report from shift 2"},
+        "documents": {"alert_log": "Incident report from shift 2"},
+        "schemas": {"incident_table": {"columns": ["error_code"]}},
     }
 
     merged = global_ctx.merge(incident_ctx)
 
-    # Sensor dictionary: TS1 was overwritten, PS1 kept, VS1 added
-    assert merged.sensor_dictionary["PS1"] == "Pressure 1"
-    assert merged.sensor_dictionary["TS1"] == "Temperature 1 (Recalibrated)"
-    assert merged.sensor_dictionary["VS1"] == "Vibration 1"
+    # Variables: TS1 was overwritten, PS1 kept, VS1 added
+    assert merged.variables["PS1"] == "Pressure 1"
+    assert merged.variables["TS1"] == "Temperature 1 (Recalibrated)"
+    assert merged.variables["VS1"] == "Vibration 1"
 
     # Thresholds preserved from global
-    assert merged.operational_thresholds["PS1_max"] == 200.0
+    assert merged.thresholds["PS1_max"] == 200.0
 
-    # Documentation snippets merged
-    assert "base_doc" in merged.documentation_snippets
-    assert "alert_log" in merged.documentation_snippets
+    # Documents merged
+    assert "base_doc" in merged.documents
+    assert "alert_log" in merged.documents
+
+    # Schemas merged
+    assert "base_table" in merged.schemas
+    assert "incident_table" in merged.schemas
 
     # Original global_ctx was not mutated
-    assert "VS1" not in global_ctx.sensor_dictionary
+    assert "VS1" not in global_ctx.variables
+    assert "incident_table" not in global_ctx.schemas
 
 
 def test_domain_context_from_input_polymorphic() -> None:
     """Verify from_input handles None, dict, and instance."""
-    assert DomainContext.from_input(None).sensor_dictionary == {}
+    assert DomainContext.from_input(None).variables == {}
 
-    ctx = DomainContext.from_input({"sensor_dictionary": {"S1": "Flow"}})
-    assert ctx.sensor_dictionary["S1"] == "Flow"
+    ctx = DomainContext.from_input({"variables": {"S1": "Flow"}})
+    assert ctx.variables["S1"] == "Flow"
 
 
 # ==============================================================================
@@ -244,7 +291,7 @@ def test_agent_step_trace_valid() -> None:
 
 
 def test_explanation_response_validation_score_constraints() -> None:
-    """Test validation_score constraints [0.0, 10.0] and rounding."""
+    """Test validation_score rounding and configurable score boundaries."""
     res = ExplanationResponse(
         narrative="Risk is driven by axial vibration (PS1).",
         validation_score=9.5678,
@@ -256,17 +303,38 @@ def test_explanation_response_validation_score_constraints() -> None:
     assert not res.fallback_used
     assert res.execution_trace == []
 
-    # Score > 10.0 must raise ValidationError
-    with pytest.raises(ValidationError, match="less than or equal to 10"):
+    # Score > 10.0 must raise ValidationError on default scale
+    with pytest.raises(ValidationError, match="between 0.0 and 10.0"):
         ExplanationResponse(
             narrative="Test", validation_score=10.5, validation_passed=True
         )
 
-    # Score < 0.0 must raise ValidationError
-    with pytest.raises(ValidationError, match="greater than or equal to 0"):
+    # Score < 0.0 must raise ValidationError on default scale
+    with pytest.raises(ValidationError, match="between 0.0 and 10.0"):
         ExplanationResponse(
             narrative="Test", validation_score=-0.1, validation_passed=False
         )
+
+    # Custom scale (e.g. percentage 0-100) can be configured via ClassVar
+    ExplanationResponse.max_score = 100.0
+    try:
+        res_percent = ExplanationResponse(
+            narrative="Custom percentage validator",
+            validation_score=95.556,
+            validation_passed=True,
+        )
+        assert res_percent.validation_score == 95.56
+    finally:
+        ExplanationResponse.max_score = 10.0
+
+
+def test_explanation_response_without_validation() -> None:
+    """Ensure response can be created without validation (fast mode / skipped)."""
+    res = ExplanationResponse(narrative="Direct unvalidated explanation.")
+    assert res.narrative == "Direct unvalidated explanation."
+    assert res.validation_score is None
+    assert res.validation_passed is None
+    assert res.validation_critique is None
 
 
 def test_explanation_response_json_serialization_roundtrip() -> None:
@@ -308,6 +376,44 @@ def test_explanation_response_json_serialization_roundtrip() -> None:
     assert (
         restored.execution_trace[1].details["critique"] == "No hallucination detected"
     )
+
+
+def test_contracts_resilient_to_none_dicts() -> None:
+    """Ensure None values for dictionary fields are coerced to empty dicts."""
+    # PredictionArtifact metadata=None
+    pred = PredictionArtifact(
+        target_variable="Pump", predicted_value=1, metadata=None
+    )
+    assert pred.metadata == {}
+
+    # XAIArtifact feature_attributions=None, raw_artifacts=None
+    xai = XAIArtifact(feature_attributions=None, raw_artifacts=None)
+    assert xai.feature_attributions == {}
+    assert xai.raw_artifacts == {}
+
+    # DomainContext with explicit None dictionaries
+    ctx = DomainContext(
+        variables=None,
+        thresholds=None,
+        documents=None,
+        hierarchy=None,
+        schemas=None,
+    )
+    assert ctx.variables == {}
+    assert ctx.thresholds == {}
+    assert ctx.documents == {}
+    assert ctx.hierarchy == {}
+    assert ctx.schemas == {}
+
+    # AgentStepTrace with details=None
+    trace = AgentStepTrace(
+        agent_name="CMA", execution_time_ms=5.0, summary="Done", details=None
+    )
+    assert trace.details == {}
+
+    # ExplanationResponse with execution_trace=None
+    res = ExplanationResponse(narrative="Test", execution_trace=None)
+    assert res.execution_trace == []
 
 
 # ==============================================================================
