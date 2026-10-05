@@ -169,4 +169,5 @@ academia/
 - Specialized Agents: Ficam em `src/eoa/agents/specialized.py`, permitindo que o usuário crie especialistas para subsistemas específicos da planta industrial dele.
 - Termos oficiais registrados em antigravity/glossary.md.
 - Backlog oficial de tarefas e fluxo Git registrado em antigravity/backlog.md.
+- Modos de Integração (Push vs Pull): Modo Direto (passa dados no explain) vs Modo Autônomo (agentes buscam via queries/tools pelo incident_id). Contratos do EP02 atendem a ambos; implementação da autonomia fica para os Épicos 06 e 07.
 ================================================================================

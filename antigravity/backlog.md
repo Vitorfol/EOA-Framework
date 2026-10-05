@@ -207,6 +207,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
   - [ ] Testes unitários do CMA com recuperação estruturada e com mock de busca vetorial customizada.
 - [ ] **TASK-06.3: `ArtifactsAgent` (AA) (`src/eoa/agents/artifacts.py`)**
   - [ ] Processar predições analíticas e importâncias XAI em resumos técnicos compreensíveis.
+  - [ ] Suporte a ferramentas (tools) para recuperação autônoma de predições e XAI por ID de incidente.
   - [ ] Testes unitários com fixtures de predições reais de manutenção preditiva.
 - [ ] **TASK-06.4: `ExplainerAgent` (EA) (`src/eoa/agents/explainer.py`)**
   - [ ] Sintetizar evidências do AA + contexto do CMA + histórico de chat em narrativa em linguagem natural.
@@ -238,8 +239,9 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 
 - [ ] **TASK-08.1: Implementação da `ExplanationLayer` (`src/eoa/layer.py` & `src/eoa/__init__.py`)**
   - [ ] Métodos limpos: `explain(...)`, `create_session(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `remove_agent(...)`.
+  - [ ] Suporte aos dois modos de consumo: Modo Direto (passando predição/XAI) e Modo Autônomo (passando incident_id).
   - [ ] Função helper `eoa.default_layer(...)` para inicialização imediata em 1 linha.
-  - [ ] Testes de ponta a ponta dos 6 cenários da jornada do desenvolvedor.
+  - [ ] Testes de ponta a ponta dos cenários da jornada do desenvolvedor.
 - [ ] **TASK-08.2: Ferramenta de Linha de Comando (CLI) (`src/eoa/cli.py`)**
   - [ ] Comando `eoa list --agents --prompts` para inspecionar agentes ativos e caminhos de prompts.
   - [ ] Comando `eoa init` para criar pasta padrão de prompts e arquivo de configuração no projeto do dev.
