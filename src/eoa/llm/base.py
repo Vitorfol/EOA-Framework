@@ -51,7 +51,3 @@ class LLM(Protocol):
             The raw text completion from the language model.
         """
         ...
-
-
-# Alias for backwards compatibility with earlier documentation and specifications
-LLMProvider = LLM

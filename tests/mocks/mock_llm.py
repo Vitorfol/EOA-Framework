@@ -1,4 +1,4 @@
-"""Deterministic MockLLMProvider for unit testing and offline development.
+"""Deterministic MockLLM for unit testing and offline development.
 
 Allows simulating LLM completions, canned responses, sequential answers,
 and network/provider failures without API keys or token expenditure.
@@ -38,7 +38,7 @@ class MockLLM(LLM):
     orchestrator refinement loops, and error-handling mechanisms.
 
     Example:
-        >>> mock = MockLLMProvider(default_response="System is healthy.")
+        >>> mock = MockLLM(default_response="System is healthy.")
         >>> response = mock.generate("Check hydraulic pump status")
         >>> assert response == "System is healthy."
         >>> assert mock.call_count == 1
@@ -54,7 +54,7 @@ class MockLLM(LLM):
         raise_error: Exception | None = None,
         simulated_latency: float = 0.0,
     ) -> None:
-        """Initialize the MockLLMProvider.
+        """Initialize the MockLLM.
 
         Args:
             default_response: Fallback text returned when no other match occurs.
@@ -212,7 +212,3 @@ class MockLLM(LLM):
             await asyncio.sleep(self.simulated_latency)
 
         return self._resolve_response(prompt, system_prompt)
-
-
-# Alias for compatibility
-MockLLMProvider = MockLLM
