@@ -119,17 +119,17 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 📦 ÉPICO 01: Setup do Projeto, Empacotamento e Infraestrutura de Testes
 > **Objetivo**: Estabelecer a estrutura física de arquivos, packaging moderno via PEP 621 e pipeline local de testes.
 
-- [ ] **TASK-01.1: Configuração do `pyproject.toml`**
-  - [ ] Declarar metadados do pacote `eoa` com build backend `hatchling`.
-  - [ ] Declarar dependência estrita do core: `pydantic >= 2.0`.
-  - [ ] Declarar grupos opcionais de extras: `[gemini]`, `[openai]`, `[cli]`, `[test]`, `[all]`.
-  - [ ] Configurar ferramentas de lint/teste (`pytest`, `ruff` ou `black`/`flake8`).
-- [ ] **TASK-01.2: Inicialização da Estrutura Física de Diretórios**
-  - [ ] Criar estrutura `src/eoa/` com todos os submódulos vazios (`agents/`, `llm/`, `memory/`, `engine/`, `prompts/`).
-  - [ ] Criar pasta `tests/` com `conftest.py` contendo fixtures básicas.
-- [ ] **TASK-01.3: Pipeline de Testes e Mock Provider**
-  - [ ] Implementar `MockLLMProvider` em `tests/mocks/` para testes determinísticos rápidos sem gastar tokens nem depender de internet.
-  - [ ] Validar execução do `pytest` com sucesso (zero falhas).
+- [x] **TASK-01.1: Configuração do `pyproject.toml`**
+  - [x] Declarar metadados do pacote `eoa` com build backend `hatchling`.
+  - [x] Declarar dependência estrita do core: `pydantic >= 2.0`.
+  - [x] Declarar grupos opcionais de extras: `[gemini]`, `[openai]`, `[cli]`, `[test]`, `[all]`.
+  - [x] Configurar ferramentas de lint/teste (`pytest`, `ruff` ou `black`/`flake8`).
+- [x] **TASK-01.2: Inicialização da Estrutura Física de Diretórios**
+  - [x] Criar estrutura `src/eoa/` com todos os submódulos vazios (`agents/`, `llm/`, `memory/`, `engine/`, `prompts/`).
+  - [x] Criar pasta `tests/` com `conftest.py` contendo fixtures básicas.
+- [x] **TASK-01.3: Pipeline de Testes e Mock Provider**
+  - [x] Implementar `MockLLM` (`MockLLMProvider`) em `tests/mocks/` para testes determinísticos rápidos sem gastar tokens nem depender de internet.
+  - [x] Validar execução do `pytest` com sucesso (zero falhas).
 
 ---
 
@@ -151,13 +151,13 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 🔌 ÉPICO 03: Abstração de Conexão com LLM (Os 3 Modos)
 > **Objetivo**: Permitir que o dev conecte qualquer IA sem dependências forçadas no core ("Developer is King").
 
-- [ ] **TASK-03.1: Protocolo Base `LLMProvider` (`src/eoa/llm/base.py`)**
+- [ ] **TASK-03.1: Protocolo Base `LLM` (`src/eoa/llm/base.py`)**
   - [ ] Definir interface PEP 544 limpa com métodos assíncronos e síncronos: `generate(prompt, system_prompt=None, **kwargs)`.
   - [ ] Implementar adaptador `CallableLLMAdapter` (Modo 3: aceitar funções customizadas em Python `def fn(prompt) -> str`).
 - [ ] **TASK-03.2: Adaptadores Nativos de Provedores (`src/eoa/llm/providers.py`)**
   - [ ] Implementar adaptador para Google Gemini (`GeminiProvider` com suporte a `google-genai`).
   - [ ] Implementar adaptador para OpenAI (`OpenAIProvider`).
-  - [ ] Implementar fábrica `create_llm_provider(...)` para o Modo 1 (chave + modelo) e Modo 2 (cliente pronto).
+  - [ ] Implementar fábrica `create_llm(...)` / `create_llm_provider(...)` para o Modo 1 (chave + modelo) e Modo 2 (cliente pronto).
   - [ ] Testes unitários com Mock e testes de injeção de dependência inválida com mensagens de erro educativas.
 
 ---
