@@ -141,7 +141,7 @@ academia/
 │       │
 │       ├── llm/                       # OS 3 MODOS DE CONEXÃO COM IA
 │       │   ├── __init__.py
-│       │   ├── base.py                # Interface abstrata LLMProvider (invoke / generate)
+│       │   ├── base.py                # Interface abstrata LLM (generate / agenerate)
 │       │   └── providers.py           # Adaptadores para Gemini, OpenAI, Ollama e Callable
 │       │
 │       ├── memory/                    # SESSÃO E BANCO DE DADOS
