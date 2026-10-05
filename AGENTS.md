@@ -19,3 +19,8 @@ This file is automatically loaded by the AI assistant across the workspace.
    - Session store defaults to native `sqlite3` and `in-memory`.
    - CMA uses structured retrieval by default, with pluggable hooks for RAG if needed.
    - Decoupled fail-safe ("unplugged"): failures in LLM or validation degrade gracefully without crashing the client's host system.
+
+4. **Zero Legacy Bloat & No Premature Backwards Compatibility (Greenfield v0.1.0)**:
+   - We are building version `0.1.0`. There are no legacy external consumers.
+   - NEVER introduce or preserve temporary aliases, legacy wrappers, artificial getter/setters, or compatibility shims to accommodate outdated drafts or preliminary notes.
+   - When a design decision or canonical naming is chosen, refactor cleanly and completely. Every single line of code must carry real architectural value.
