@@ -14,7 +14,7 @@ from eoa.contracts import (
 )
 from eoa.llm.base import LLM
 from eoa.llm.callable import CallableLLMAdapter
-from eoa.llm.factory import as_llm, create_llm
+from eoa.llm.factory import create_llm
 from eoa.llm.gemini import GeminiProvider
 
 __version__: str = "0.1.0"
@@ -30,5 +30,4 @@ __all__: tuple[str, ...] = (
     "CallableLLMAdapter",
     "GeminiProvider",
     "create_llm",
-    "as_llm",
 )

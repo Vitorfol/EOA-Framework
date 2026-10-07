@@ -3,7 +3,7 @@
 Tests:
 1. CallableLLMAdapter (Mode 3: sync and async user functions).
 2. GeminiProvider (Mode 1 & Mode 2: unit tests with client mocks).
-3. create_llm / as_llm factory resolution and educational error messages.
+3. create_llm factory resolution and educational error messages.
 4. Optional live integration test with Gemini API when GEMINI_API_KEY is available.
 """
 
@@ -17,7 +17,7 @@ import pytest
 import eoa
 from eoa.llm.base import LLM
 from eoa.llm.callable import CallableLLMAdapter
-from eoa.llm.factory import as_llm, create_llm
+from eoa.llm.factory import create_llm
 from eoa.llm.gemini import GeminiProvider
 from tests.mocks.mock_llm import MockLLM
 
@@ -168,7 +168,7 @@ async def test_gemini_provider_async_agenerate_mocked() -> None:
 
 
 # ==============================================================================
-# 3. Factory Resolution Tests (create_llm / as_llm)
+# 3. Factory Resolution Tests: create_llm
 # ==============================================================================
 
 
@@ -222,18 +222,12 @@ def test_create_llm_no_args_and_no_env_raises_educational_error(
         create_llm()
 
 
-def test_as_llm_alias() -> None:
-    """Ensure as_llm alias is identical to create_llm."""
-    assert as_llm is create_llm
-
-
 def test_root_package_exports_llm_components() -> None:
     """Verify all LLM components are accessible directly from root eoa."""
     assert hasattr(eoa, "LLM")
     assert hasattr(eoa, "CallableLLMAdapter")
     assert hasattr(eoa, "GeminiProvider")
     assert hasattr(eoa, "create_llm")
-    assert hasattr(eoa, "as_llm")
 
 
 # ==============================================================================

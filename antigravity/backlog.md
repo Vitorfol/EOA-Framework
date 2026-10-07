@@ -156,7 +156,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
   - [x] Implementar adaptador `CallableLLMAdapter` (Modo 3: aceitar funções customizadas em Python `def fn(prompt) -> str` ou async `async def fn(...) -> str`).
 - [x] **TASK-03.2: Adaptadores Nativos de Provedores (`src/eoa/llm/gemini.py` & `factory.py`)**
   - [x] Implementar adaptador para Google Gemini (`GeminiProvider` com suporte a `google-genai`).
-  - [x] Implementar fábrica `create_llm(...)` / `as_llm(...)` unificada para Modo 1 (chave + modelo), Modo 2 (cliente pronto) e Modo 3 (callables).
+  - [x] Implementar fábrica `create_llm(...)` unificada para Modo 1 (chave + modelo), Modo 2 (cliente pronto) e Modo 3 (callables).
   - [x] Suporte a fallback e configuração flexível de modelo (`gemini-2.5-flash`, `gemini-3.8-flash`, etc.).
   - [x] Testes unitários com Mock e testes de injeção de dependência inválida com mensagens de erro educativas.
   - [x] Teste de integração assíncrono real via `GEMINI_API_KEY` opcional.

@@ -1,6 +1,6 @@
-"""Factory functions and resolution utilities for EOA LLM providers.
+"""Factory function and resolution utilities for EOA LLM providers.
 
-Provides developer-friendly unified entry points (`create_llm` and `as_llm`)
+Provides developer-friendly unified entry point (`create_llm`)
 supporting all 3 connection modes transparently:
 - Mode 1: Direct Credentials / Provider name
 - Mode 2: Existing instantiated Client (BYO Client)
@@ -116,7 +116,3 @@ def create_llm(
         "  3. Mode 3 (Function): create_llm(llm=my_custom_function)"
     )
     raise ValueError(msg)
-
-
-# Alias for intuitive developer experience
-as_llm = create_llm
