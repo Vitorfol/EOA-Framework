@@ -47,7 +47,7 @@ class GeminiProvider(LLM):
         >>> provider = GeminiProvider(client=my_client)
     """
 
-    DEFAULT_MODEL = "gemini-2.5-flash"
+    DEFAULT_MODEL = "gemini-3.5-flash-lite"
 
     def __init__(
         self,
@@ -62,7 +62,7 @@ class GeminiProvider(LLM):
             api_key: Optional Gemini API key. If omitted, checks
                 `GEMINI_API_KEY` environment variable.
             model: Optional model identifier. Defaults to `GEMINI_MODEL` env var
-                or 'gemini-2.5-flash'.
+                or 'gemini-3.5-flash-lite'.
             client: Optional pre-configured `genai.Client` instance (Mode 2).
             **client_options: Additional options forwarded to `genai.Client`
                 when created.

@@ -247,7 +247,7 @@ async def test_live_gemini_api_integration() -> None:
     if not api_key:
         pytest.skip("Skipping live integration test: GEMINI_API_KEY is not set.")
 
-    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
     provider = GeminiProvider(api_key=api_key, model=model_name)
 
     # 1. Sync generation test
