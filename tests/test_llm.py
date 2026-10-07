@@ -21,6 +21,11 @@ from eoa.llm.factory import as_llm, create_llm
 from eoa.llm.gemini import GeminiProvider
 from tests.mocks.mock_llm import MockLLM
 
+try:
+    from google import genai
+except ImportError:
+    genai = None  # type: ignore[assignment]
+
 # ==============================================================================
 # 1. CallableLLMAdapter Tests (Mode 3)
 # ==============================================================================
@@ -232,17 +237,13 @@ def test_root_package_exports_llm_components() -> None:
 
 
 # ==============================================================================
-# 4. Live Integration Test (Only runs if GEMINI_API_KEY is exported)
+# 4. Live Integration Tests (Only run if GEMINI_API_KEY is exported)
 # ==============================================================================
 
 
 @pytest.mark.integration
-@pytest.mark.asyncio
-async def test_live_gemini_api_integration() -> None:
-    """Live sanity check against Google Gemini API when GEMINI_API_KEY is set.
-
-    Run with: export GEMINI_API_KEY="..." && pytest -m integration
-    """
+def test_live_gemini_mode_1_direct_credentials() -> None:
+    """Mode 1: Direct API Key with synchronous generation."""
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         pytest.skip("Skipping live integration test: GEMINI_API_KEY is not set.")
@@ -250,17 +251,48 @@ async def test_live_gemini_api_integration() -> None:
     model_name = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
     provider = GeminiProvider(api_key=api_key, model=model_name)
 
-    # 1. Sync generation test
     sync_resp = provider.generate(
-        "Reply with exactly one word: 'READY'.",
+        "Reply with exactly one word: 'MODE1_READY'.",
         temperature=0.0,
     )
-    assert "READY" in sync_resp.upper()
+    assert "MODE1_READY" in sync_resp.upper()
 
-    # 2. Async generation test
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_live_gemini_mode_2_byo_client() -> None:
+    """Mode 2: BYO Client with asynchronous non-blocking generation."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        pytest.skip("Skipping live integration test: GEMINI_API_KEY is not set.")
+
+    # Create native genai.Client instance explicitly (Mode 2)
+    client = genai.Client(api_key=api_key)
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash-lite")
+    provider = GeminiProvider(client=client, model=model_name)
+
     async_resp = await provider.agenerate(
-        "Reply with exactly one word: 'CONNECTED'.",
-        system_prompt="You are an automated system test probe.",
+        "Reply with exactly one word: 'MODE2_CONNECTED'.",
+        system_prompt="You are a system health check probe.",
         temperature=0.0,
     )
-    assert "CONNECTED" in async_resp.upper()
+    assert "MODE2_CONNECTED" in async_resp.upper()
+
+
+@pytest.mark.integration
+@pytest.mark.asyncio
+async def test_live_gemini_factory_auto_detect() -> None:
+    """Mode 1 via Factory: create_llm() auto-detecting GEMINI_API_KEY from env."""
+    api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        pytest.skip("Skipping live integration test: GEMINI_API_KEY is not set.")
+
+    # Calls factory with zero args; should resolve to GeminiProvider reading env
+    llm = create_llm()
+    assert isinstance(llm, GeminiProvider)
+
+    resp = await llm.agenerate(
+        "Reply with exactly one word: 'FACTORY_OK'.",
+        temperature=0.0,
+    )
+    assert "FACTORY_OK" in resp.upper()
