@@ -13,6 +13,9 @@ from eoa.contracts import (
     XAIArtifact,
 )
 from eoa.llm.base import LLM
+from eoa.llm.callable import CallableLLMAdapter
+from eoa.llm.factory import create_llm
+from eoa.llm.gemini import GeminiProvider
 
 __version__: str = "0.1.0"
 
@@ -24,4 +27,7 @@ __all__: tuple[str, ...] = (
     "AgentStepTrace",
     "ExplanationResponse",
     "LLM",
+    "CallableLLMAdapter",
+    "GeminiProvider",
+    "create_llm",
 )

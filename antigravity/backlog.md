@@ -151,14 +151,15 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 🔌 ÉPICO 03: Abstração de Conexão com LLM (Os 3 Modos)
 > **Objetivo**: Permitir que o dev conecte qualquer IA sem dependências forçadas no core ("Developer is King").
 
-- [ ] **TASK-03.1: Protocolo Base `LLM` (`src/eoa/llm/base.py`)**
-  - [ ] Definir interface PEP 544 limpa com métodos assíncronos e síncronos: `generate(prompt, system_prompt=None, **kwargs)`.
-  - [ ] Implementar adaptador `CallableLLMAdapter` (Modo 3: aceitar funções customizadas em Python `def fn(prompt) -> str`).
-- [ ] **TASK-03.2: Adaptadores Nativos de Provedores (`src/eoa/llm/providers.py`)**
-  - [ ] Implementar adaptador para Google Gemini (`GeminiProvider` com suporte a `google-genai`).
-  - [ ] Implementar adaptador para OpenAI (`OpenAIProvider`).
-  - [ ] Implementar fábrica `create_llm(...)` / `create_llm_provider(...)` para o Modo 1 (chave + modelo) e Modo 2 (cliente pronto).
-  - [ ] Testes unitários com Mock e testes de injeção de dependência inválida com mensagens de erro educativas.
+- [x] **TASK-03.1: Protocolo Base `LLM` (`src/eoa/llm/base.py`)**
+  - [x] Definir interface PEP 544 limpa com métodos assíncronos e síncronos: `generate(prompt, system_prompt=None, **kwargs)` e `agenerate(...)`.
+  - [x] Implementar adaptador `CallableLLMAdapter` (Modo 3: aceitar funções customizadas em Python `def fn(prompt) -> str` ou async `async def fn(...) -> str`).
+- [x] **TASK-03.2: Adaptadores Nativos de Provedores (`src/eoa/llm/gemini.py` & `factory.py`)**
+  - [x] Implementar adaptador para Google Gemini (`GeminiProvider` com suporte a `google-genai`).
+  - [x] Implementar fábrica `create_llm(...)` unificada para Modo 1 (chave + modelo), Modo 2 (cliente pronto) e Modo 3 (callables).
+  - [x] Suporte a fallback e configuração flexível de modelo (`gemini-2.5-flash`, `gemini-3.8-flash`, etc.).
+  - [x] Testes unitários com Mock e testes de injeção de dependência inválida com mensagens de erro educativas.
+  - [x] Teste de integração assíncrono real via `GEMINI_API_KEY` opcional.
 
 ---
 

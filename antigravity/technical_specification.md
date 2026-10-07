@@ -336,20 +336,32 @@ MAPA DE CLASSES DO FRAMEWORK
 Para garantir que o desenvolvedor tenha controle total ("Developer is King"), o framework suporta 3 modos de inicialização do LLM:
 
 1. **Modo 1: Credenciais Diretas (Chave + Modelo)**:
+   - **Variação A (Explícita)**: O desenvolvedor passa chave e modelo no construtor.
+   - **Variação B (Zero-Config / Lazy via Env)**: Se omitidos, o framework resolve automaticamente de `GEMINI_API_KEY` e `GEMINI_MODEL` (fallback padrão: `gemini-3.5-flash-lite`).
    ```python
-   # O EOA cria a conexão nativa internamente
-   layer = eoa.ExplanationLayer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
+   # Variação A: Chave e modelo explícitos
+   layer = eoa.ExplanationLayer(provider="gemini", api_key="AIzaSy...", model="gemini-3.5-flash-lite")
+
+   # Variação B: Leitura automática do ambiente (export GEMINI_API_KEY="...")
+   layer = eoa.ExplanationLayer(provider="gemini")
+   # ou instanciação zero-config direta:
+   layer = eoa.ExplanationLayer()
    ```
+
 2. **Modo 2: Cliente Pronto (Bring Your Own Client)**:
+   - O desenvolvedor injeta um cliente já autenticado com proxy corporativo, headers customizados ou certificados.
+   - O framework não inspeciona nem exige a chave de API, respeitando o encapsulamento do cliente fornecido.
    ```python
-   # O desenvolvedor injeta um cliente já autenticado com proxy, headers customizados ou certificados
    import google.genai as genai
-   my_client = genai.Client(...)
+   my_client = genai.Client(api_key="...", http_options={"proxy": "http://proxy.local:8080"})
    layer = eoa.ExplanationLayer(llm=my_client)
    ```
+
 3. **Modo 3: Função Customizada (Custom Callable)**:
+   - Suporte universal para qualquer IA (modelos locais em vLLM/Ollama, gateways internos, OpenAI ou Anthropic).
+   - Aceita funções síncronas (`def`) ou assíncronas (`async def`), com inspeção dinâmica de assinatura para `prompt` e `system_prompt`.
    ```python
-   # Para modelos locais em vLLM/Ollama ou pipelines proprietárias da empresa
+   # Exemplo síncrono para gateway local ou Ollama
    def my_custom_llm(prompt: str, system_prompt: str | None = None) -> str:
        return internal_ai_gateway.predict(prompt)
 
