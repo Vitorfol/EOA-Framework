@@ -27,11 +27,23 @@ def create_llm(
 ) -> LLM:
     """Create or resolve an EOA-compliant LLM instance across the 3 modes.
 
+    Resolution Flow:
+        1. Idempotency: If `llm` is already an `LLM` instance, returns it directly.
+        2. Mode 2 (BYO Client): If `llm` is a Google `genai.Client`, wraps it in
+           `GeminiProvider(client=llm)`.
+        3. Mode 3 (Custom Callable): If `llm` is a callable (sync or async),
+           wraps it in `CallableLLMAdapter(llm)`.
+        4. Mode 1 (Explicit Provider): If `provider='gemini'`, creates
+           `GeminiProvider(api_key=..., model=...)`.
+        5. Mode 1 (Zero-Config / Auto-Detect): If no args and `GEMINI_API_KEY` is set,
+           creates `GeminiProvider(model=...)`.
+        6. Fallback: Raises `ValueError` with guidance on the 3 connection modes.
+
     Args:
         llm: Existing LLM instance, callable function, or third-party client.
         provider: Provider identifier string (e.g., 'gemini').
         api_key: API key string (if not using environment variables).
-        model: Model name/identifier (e.g., 'gemini-2.5-flash', 'gemini-3.8-flash').
+        model: Model name/identifier (defaults to 'gemini-3.5-flash-lite').
         **kwargs: Additional parameters forwarded to the provider or client.
 
     Returns:
@@ -42,15 +54,21 @@ def create_llm(
         TypeError: If an unsupported object type is passed as `llm`.
 
     Examples:
-        >>> # Mode 1: Direct credentials or environment variable
-        >>> llm = create_llm(provider="gemini", model="gemini-2.5-flash")
+        >>> # Case 1: Idempotency (already an LLM instance)
+        >>> llm = create_llm(existing_llm_instance)
 
-        >>> # Mode 2: Existing client instance
+        >>> # Case 2: Mode 2 (Existing client instance)
         >>> client = genai.Client(...)
-        >>> llm = create_llm(llm=client)
+        >>> llm = create_llm(client)
 
-        >>> # Mode 3: Custom callable function or lambda
-        >>> llm = create_llm(llm=lambda prompt: "Custom response")
+        >>> # Case 3: Mode 3 (Custom callable function or lambda)
+        >>> llm = create_llm(lambda prompt: "Custom response")
+
+        >>> # Case 4: Mode 1 (Explicit provider and key)
+        >>> llm = create_llm(provider="gemini", api_key="AIzaSy...")
+
+        >>> # Case 5: Mode 1 (Zero-config from GEMINI_API_KEY environment variable)
+        >>> llm = create_llm()
     """
     # 1. Already an EOA-compliant LLM
     if isinstance(llm, LLM):
