@@ -331,30 +331,91 @@ MAPA DE CLASSES DO FRAMEWORK
 
 ---
 
-## 2.1 Os 3 Modos de Conexão com LLM (Flexibilidade Total)
+## 2.1 Os 3 Modos de Conexão com LLM (Flexibilidade Total & DX First)
 
-Para garantir que o desenvolvedor tenha controle total ("Developer is King"), o framework suporta 3 modos de inicialização do LLM:
+Para garantir que o desenvolvedor tenha controle total ("Developer is King") e que o core permaneça estritamente ultra-leve (`pydantic >= 2.0`), o framework abstrai o acesso a modelos de linguagem através do protocolo `LLM` (`PEP 544`) e do ponto de entrada unificado `create_llm` / `as_llm`.
 
-1. **Modo 1: Credenciais Diretas (Chave + Modelo)**:
-   ```python
-   # O EOA cria a conexão nativa internamente
-   layer = eoa.ExplanationLayer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
-   ```
-2. **Modo 2: Cliente Pronto (Bring Your Own Client)**:
-   ```python
-   # O desenvolvedor injeta um cliente já autenticado com proxy, headers customizados ou certificados
-   import google.genai as genai
-   my_client = genai.Client(...)
-   layer = eoa.ExplanationLayer(llm=my_client)
-   ```
-3. **Modo 3: Função Customizada (Custom Callable)**:
-   ```python
-   # Para modelos locais em vLLM/Ollama ou pipelines proprietárias da empresa
-   def my_custom_llm(prompt: str, system_prompt: str | None = None) -> str:
-       return internal_ai_gateway.predict(prompt)
+O framework suporta 3 modos de inicialização, com resolução preguiçosa (*lazy evaluation*) e auto-detecção de ambiente:
 
-   layer = eoa.ExplanationLayer(llm=my_custom_llm)
-   ```
+```text
+==========================================================================================================
+FLUXO DE RESOLUÇÃO POLIMÓRFICA DO LLM (create_llm / as_llm)
+==========================================================================================================
+
+ [ ENTRADA DO USUÁRIO OU CAMADA ]
+ ┌────────────────────────────────────────────────────────┐
+ │ create_llm(llm=..., provider=..., api_key=..., ...)   │
+ └──────────────────────────┬─────────────────────────────┘
+                            │
+                            ├─► (1) llm já é instância de LLM? ──────► Retorna diretamente (Idempotência)
+                            │
+                            ├─► (2) llm é genai.Client (Modo 2)? ────► Retorna GeminiProvider(client=llm)
+                            │                                         (Chave encapsulada no cliente)
+                            │
+                            ├─► (3) llm é Callable/Função (Modo 3)? ─► Retorna CallableLLMAdapter(fn)
+                            │                                         (Inspeciona assinatura; sync/async)
+                            │
+                            ├─► (4) provider="gemini" (Modo 1)? ─────► Retorna GeminiProvider(api_key=...)
+                            │
+                            ├─► (5) Zero-Config (Env GEMINI_API_KEY)?► Retorna GeminiProvider(auto-detect)
+                            │
+                            └─► (6) Nenhuma config válida? ──────────► ValueError didático (Guia dos 3 Modos)
+==========================================================================================================
+```
+
+### Detalhamento dos 3 Modos e suas Variações Práticas:
+
+#### 1. Modo 1: Credenciais Diretas (Direct Credentials)
+Neste modo, o framework é responsável por gerenciar a conexão nativa com a API.
+- **Variação 1.A (Passagem Explícita de Parâmetros)**:
+  ```python
+  # O desenvolvedor passa chave e modelo no construtor
+  layer = eoa.ExplanationLayer(
+      provider="gemini",
+      api_key="AIzaSy...",
+      model="gemini-3.8-flash"
+  )
+  ```
+- **Variação 1.B (Zero-Config via Variáveis de Ambiente & Lazy Instantiation)**:
+  O desenvolvedor não precisa expor segredos no código-fonte. O EOA detecta automaticamente `GEMINI_API_KEY` e opcionalmente `GEMINI_MODEL` (fallback padrão: `gemini-3.5-flash-lite`):
+  ```bash
+  export GEMINI_API_KEY="AIzaSy..."
+  export GEMINI_MODEL="gemini-3.8-flash"
+  ```
+  ```python
+  # Inicialização de 1 linha sem parâmetros hardcoded
+  layer = eoa.ExplanationLayer()  # Detecta e instancia o provedor sob demanda
+  ```
+
+#### 2. Modo 2: Cliente Pronto (Bring Your Own Client - BYO Client)
+Projetado para cenários corporativos avançados, infraestruturas de rede restritas (proxies, gateways internos) ou autenticações IAM (Vertex AI, tokens mTLS).
+- **Sem verificação de chave pelo framework**: O cliente oficial já encapsula sua própria autenticação e headers. O EOA não inspeciona nem exige strings de chave privada.
+  ```python
+  import google.genai as genai
+
+  # Cliente com timeout, proxy corporativo ou transporte customizado
+  custom_client = genai.Client(
+      api_key="...",
+      http_options={"proxy": "http://proxy.empresa.com:8080"}
+  )
+
+  # Injeção direta no EOA
+  layer = eoa.ExplanationLayer(llm=custom_client)
+  ```
+
+#### 3. Modo 3: Funções Customizadas (Custom Callables - Suporte Universal)
+Projetado para modelos open-weights locais (Ollama, vLLM, HuggingFace TGI), gateways internos de IA ou outros provedores como OpenAI e Anthropic sem depender dos seus SDKs pesados instalados no core:
+- O EOA aceita qualquer função síncrona (`def fn(prompt: str) -> str`) ou assíncrona (`async def fn(prompt: str) -> str`).
+- **Inspeção de Assinatura Dinâmica**: Se a função aceitar `system_prompt`, o EOA o repassa. Se aceitar apenas `prompt`, o EOA adapta a chamada sem levantar `TypeError`.
+- **Proteção do Event Loop**: Funções síncronas são encapsuladas em workers threadpool via `asyncio.to_thread` na execução assíncrona, garantindo que I/O bloqueante do usuário não trave a orquestração dos agentes.
+  ```python
+  # Exemplo com modelo local Ollama / vLLM
+  def call_local_llama(prompt: str) -> str:
+      response = requests.post("http://localhost:11434/api/generate", json={"prompt": prompt})
+      return response.json()["response"]
+
+  layer = eoa.ExplanationLayer(llm=call_local_llama)
+  ```
 
 ---
 
