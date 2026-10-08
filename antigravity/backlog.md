@@ -166,15 +166,15 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 🧠 ÉPICO 04: Sistema de Memória e Histórico de Chat (`SessionStore`)
 > **Objetivo**: Gestão de conversas multi-turn onde o desenvolvedor é dono dos dados sem dependência de banco vetorial no core.
 
-- [ ] **TASK-04.1: Protocolo `SessionStore` e Implementação InMemory (`src/eoa/memory/`)**
-  - [ ] Definir `SessionStore` (get_history, append_message, clear_session).
-  - [ ] Implementar `InMemorySessionStore` para testes rápidos e APIs sem persistência em disco.
-  - [ ] Testes unitários de append, ordenação temporal e expiração/limpeza.
-- [ ] **TASK-04.2: Implementação Persistente `SQLiteSessionStore` (`src/eoa/memory/sqlite.py`)**
-  - [ ] Implementar armazenamento relacional nativo usando `sqlite3` da biblioteca padrão do Python.
-  - [ ] Criação automática das tabelas (`sessions`, `messages`, `validation_logs`).
-  - [ ] Adicionar método utilitário para o dev inspecionar ou exportar dados em SQL/Dicionário.
-  - [ ] Testes unitários de persistência real em arquivo `.db` temporário com reabertura de conexão.
+- [x] **TASK-04.1: Protocolo `SessionStore` e Implementação InMemory (`src/eoa/memory/`)**
+  - [x] Definir `SessionStore` (get_history, append_message, clear_session).
+  - [x] Implementar `InMemorySessionStore` para testes rápidos e APIs sem persistência em disco.
+  - [x] Testes unitários de append, ordenação temporal e expiração/limpeza.
+- [x] **TASK-04.2: Implementação Persistente `SQLiteSessionStore` (`src/eoa/memory/sqlite.py`)**
+  - [x] Implementar armazenamento relacional nativo usando `sqlite3` da biblioteca padrão do Python.
+  - [x] Criação automática das tabelas (`sessions`, `messages`, `validation_logs`).
+  - [x] Adicionar método utilitário para o dev inspecionar ou exportar dados em SQL/Dicionário.
+  - [x] Testes unitários de persistência real em arquivo `.db` temporário com reabertura de conexão.
 
 ---
 

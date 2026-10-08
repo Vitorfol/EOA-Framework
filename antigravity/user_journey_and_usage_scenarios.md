@@ -138,12 +138,14 @@ O operador quer tirar dúvidas contínuas sobre o alerta em um chat interativo. 
 ```python
 import eoa
 
-# Configura o framework apontando para o arquivo de banco desejado
+# =========================================================================
+# Forma A: Usando integrado com a ExplanationLayer (Automático)
+# =========================================================================
 layer = eoa.ExplanationLayer(
     provider="gemini",
     api_key="...",
-    # O arquivo .db é criado automaticamente pelo Python (zero dependências extras)
-    session_store=eoa.SQLiteSessionStore(db_path="meus_alertas.db")
+    # O arquivo .db é criado e inicializado automaticamente (zero dependências)
+    session_store=eoa.SQLiteSessionStore(db_path="meus_alertas.db"),
 )
 
 # Inicia ou retoma uma sessão com o ID do incidente
@@ -157,8 +159,26 @@ print(res1.narrative)
 res2 = chat.ask("Isso tem risco iminente de cavitação se mantivermos a carga atual?")
 print(res2.narrative)
 
-# O desenvolvedor pode abrir o arquivo 'meus_alertas.db' no DBeaver / VSCode e auditar:
-# SELECT * FROM eoa_messages WHERE session_id = 'incidente_turbina_04';
+
+# =========================================================================
+# Forma B: Usando o SQLiteSessionStore Diretamente (Auditoria & RAG)
+# =========================================================================
+store = eoa.SQLiteSessionStore("meus_alertas.db")
+
+# 1. Recuperar histórico tipado em Python
+historico = store.get_history("incidente_turbina_04")
+for msg in historico:
+    print(f"[{msg.timestamp}] {msg.role.upper()}: {msg.content}")
+
+# 2. Exportar como dicionários puros para alimentar pipelines externos ou RAG
+dados = store.export_dict("incidente_turbina_04")
+# Mensagens prontas para indexação ou logging corporativo:
+mensagens_para_rag = [m["content"] for m in dados["messages"]]
+logs_de_validacao = dados["validation_logs"]
+
+# 3. Auditoria SQL direta no banco (DBeaver, VS Code, PowerBI):
+# SELECT role, content, timestamp FROM messages WHERE session_id = 'incidente_turbina_04';
+# SELECT score, passed, critique FROM validation_logs WHERE session_id = 'incidente_turbina_04';
 ```
 
 ---

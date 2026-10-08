@@ -268,7 +268,9 @@ classDiagram
 
     class SQLiteSessionStore {
         -db_path: Path
-        +export_sql() Any
+        +export_dict(session_id: str) dict
+        +log_validation(...) None
+        +get_validation_logs(session_id: str) list
     }
 
     class ExplanationLayer {
