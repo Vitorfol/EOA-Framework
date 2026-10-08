@@ -150,6 +150,14 @@ class TestSQLiteSessionStore:
         store = SQLiteSessionStore(":memory:")
         assert isinstance(store, SessionStore)
 
+    def test_default_db_path_is_eoa_db(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.chdir(tmp_path)
+        store = SQLiteSessionStore()
+        assert store.db_path == "eoa.db"
+        assert (tmp_path / "eoa.db").exists()
+
     def test_in_memory_sqlite_basic_operations(self) -> None:
         store = SQLiteSessionStore(":memory:")
         msg1 = ChatMessage(

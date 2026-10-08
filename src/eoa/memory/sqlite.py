@@ -39,8 +39,8 @@ class SQLiteSessionStore(SessionStore):
         1
     """
 
-    def __init__(self, db_path: str | Path = ":memory:", timeout: float = 10.0) -> None:
-        """Initialize the SQLiteSessionStore and ensure database schema exists."""
+    def __init__(self, db_path: str | Path = "eoa.db", timeout: float = 10.0) -> None:
+        """Initialize SQLiteSessionStore, defaulting to 'eoa.db'."""
         self.db_path = (
             str(db_path) if isinstance(db_path, (str, Path)) else str(db_path)
         )
