@@ -224,8 +224,8 @@ classDiagram
     class BaseAgent {
         <<Abstract>>
         +name: str
-        +role: str
         +prompt: str | Path | None
+        +role: str | None
         +tools: list~Tool~
         +run(state: AgentState, llm: LLM) AgentResult
     }
@@ -438,7 +438,8 @@ Callables e arquivos `.txt` ficam fora da v0.1.0 para manter simplicidade, previ
 ### C. Agentes Especializados (`SpecializedAgent`)
 O framework suporta a injeção de agentes dedicados a subsistemas industriais específicos:
 - Classe `SpecializedAgent` herda de `BaseAgent`.
-- Registro no fluxo: `layer.register_agent(SpecializedAgent(name="turbina_specialist", role="Analista de Mancais", prompt=Path("...")))` (sem default, o `prompt` é obrigatório).
+- Registro no fluxo: `layer.register_agent(SpecializedAgent(name="turbina_specialist", prompt=Path("...")))`.
+  - Como o formato PTCF já define a persona e especialidade no próprio prompt (`## Persona`), o construtor é enxuto e não exige redundância de texto (`role` é opcional).
 - No ciclo de orquestração, o `OrchestratorEngine` avalia metadados e aciona os agentes especializados pertinentes ao subsistema do alerta.
 
 ---

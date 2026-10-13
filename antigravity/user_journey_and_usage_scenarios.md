@@ -112,9 +112,9 @@ layer.remove_agent("context_manager")
 layer.override_agent_prompt("explainer", Path("meus_prompts/explainer_industrial.md"))
 
 # 4. Quer adicionar um Especialista Próprio?
+# Como o prompt PTCF já define a Persona, o construtor é super enxuto:
 layer.register_agent(SpecializedAgent(
     name="turbina_francis",
-    role="Analista mecânico de cavitação e mancais",
     prompt=Path("meus_prompts/turbina_francis.md"),
 ))
 
