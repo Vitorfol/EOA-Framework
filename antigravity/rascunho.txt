@@ -36,10 +36,10 @@ layer = eoa.ExplanationLayer(llm=my_llm_client)
 layer.create_default_agents()
 
 # O dev pode remover um agente que não quer usar:
-layer.remove_agent("CMA")
+layer.remove_agent("context_manager")
 
 # O dev pode sobrescrever um prompt usando .md, .txt ou string:
-layer.override_agent_prompt("EA", source="prompts/custom_explainer.md")
+layer.override_agent_prompt("explainer", Path("prompts/custom_explainer.md"))
 
 # O dev pode adicionar um Specialized Agent com sua própria ferramenta/prompt:
 layer.register_specialized_agent(
@@ -84,7 +84,7 @@ layer = eoa.ExplanationLayer(
 ```python
 # Por padrão, o CMA usa schemas JSON e manuais estruturados (zero vetores).
 # Mas se o dev tiver um manual gigante e quiser usar RAG:
-cma = layer.get_agent("CMA")
+cma = layer.get_agent("context_manager")
 cma.set_retriever(meu_retriever_vetorial_customizado)
 # O framework não obriga a instalar Chroma/FAISS, mas dá o gancho perfeito para quem quiser!
 ```

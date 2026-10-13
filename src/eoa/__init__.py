@@ -22,6 +22,7 @@ from eoa.memory import (
     SessionStore,
     SQLiteSessionStore,
 )
+from eoa.prompts import PromptManager
 
 __version__: str = "0.1.0"
 
@@ -40,4 +41,5 @@ __all__: tuple[str, ...] = (
     "InMemorySessionStore",
     "SessionStore",
     "SQLiteSessionStore",
+    "PromptManager",
 )
