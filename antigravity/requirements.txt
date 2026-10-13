@@ -43,10 +43,9 @@ FR-02: Core Canonical Agents
     - SpecializedAgent (SA): Generic base class for developers to add domain-specific agents.
 
 FR-03: Agent Lifecycle & Dynamic Registry
-    - Register, list, inspect, override, and remove agents at runtime:
-      e.g., eoa.register_agent(), eoa.override_agent(), eoa.remove_agent().
-    - Support for loading agent prompts from strings, .txt files, .md files,
-      or dynamic Python callables.
+    - Register, list, inspect, override prompts, and remove agents at runtime:
+      e.g., eoa.register_agent(), eoa.override_agent_prompt(), eoa.remove_agent().
+    - Support for loading agent prompts from strings or .md files via PromptManager.
 
 FR-04: LLM Abstraction & Protocol (3 Connection Modes)
     - Abstract LLM protocol (PEP 544: `generate` and `agenerate`).

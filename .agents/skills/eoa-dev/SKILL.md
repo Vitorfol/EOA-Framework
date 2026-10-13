@@ -13,7 +13,7 @@ This skill guides the design, implementation, evaluation, and empirical study of
 1. **Developer is King / Almost Everything is Adaptable**:
    - Provide clean, non-binding defaults (Orchestrator, CMA, AA, EA, VA).
    - Allow developers to add, override, customize, or remove agents at will.
-   - Accept prompt definitions from files (.md, .txt), inline strings, or callables.
+   - Accept prompt definitions from `.md` files (`Path`) or inline strings (`str`), via the agent constructor.
    - Zero mandatory heavy dependencies in core (only `pydantic >= 2.0`).
 
 2. **Decoupled & Fail-Safe ("Unplugged")**:

@@ -13,7 +13,7 @@ Este documento detalha **como o desenvolvedor vai usar o framework no dia a dia*
 | :--- | :--- | :--- |
 | **Cenário 1** | **Plug & Play (3 Linhas)**: Explicar um alerta básico sem configurar nada. | ⚡ < 1 min |
 | **Cenário 2** | **Conexão com LLM Flexível**: 3 formas diferentes de conectar a IA. | 🔌 1 min |
-| **Cenário 3** | **"O Desenvolvedor é Rei"**: Remover agentes, trocar prompts por `.md` ou `.txt`. | 🛠️ 3 min |
+| **Cenário 3** | **"O Desenvolvedor é Rei"**: Remover agentes, trocar prompts por `.md`. | 🛠️ 3 min |
 | **Cenário 4** | **Chat Multi-Turn e Banco SQLite**: Conversar com o agente e auditar o `.db`. | 💬 2 min |
 | **Cenário 5** | **Manuais Técnicos Gigantes**: Busca estruturada padrão vs. Plugando RAG. | 📚 4 min |
 | **Cenário 6** | **Integração num Sistema Real (FastAPI / Backend Legado)**: Degradação graciosa. | 🏭 5 min |
@@ -105,18 +105,18 @@ layer = eoa.ExplanationLayer(provider="gemini", api_key="...")
 layer.create_default_agents()
 
 # 2. Não precisa do CMA neste projeto? Desliga com uma linha:
-layer.remove_agent("CMA")
+layer.remove_agent("context_manager")
 
 # 3. O prompt padrão do Explainer não tem o tom desejado?
-# Sobrescreve apontando para um arquivo .md ou .txt no repositório:
-layer.override_agent_prompt("EA", source="meus_prompts/explainer_industrial.md")
+# Sobrescreve cirurgicamente o prompt apontando para um arquivo .md ou string:
+layer.override_agent_prompt("explainer", Path("meus_prompts/explainer_industrial.md"))
 
 # 4. Quer adicionar um Especialista Próprio?
-layer.register_specialized_agent(
-    name="EspecialistaTurbinaFrancis",
+layer.register_agent(SpecializedAgent(
+    name="turbina_francis",
     role="Analista mecânico de cavitação e mancais",
-    prompt_source="meus_prompts/turbina_francis.txt"
-)
+    prompt=Path("meus_prompts/turbina_francis.md"),
+))
 
 # 5. Lista no terminal para inspecionar como a camada ficou configurada
 layer.inspect()
@@ -126,7 +126,7 @@ layer.inspect()
 # AA (Artifacts)  Ativo      Built-in
 # EA (Explainer)  Ativo      meus_prompts/explainer_industrial.md
 # VA (Validator)  Ativo      Built-in (Threshold: 7.0/10)
-# Especialista..  Ativo      meus_prompts/turbina_francis.txt
+# Especialista..  Ativo      meus_prompts/turbina_francis.md
 ```
 
 ---
@@ -217,7 +217,7 @@ def meu_buscador_vetorial(query: str) -> str:
     return "\n".join([t.page_content for t in trechos_relevantes])
 
 # Pluga no ContextManagerAgent (CMA):
-cma = layer.get_agent("CMA")
+cma = layer.get_agent("context_manager")
 cma.set_retriever(meu_buscador_vetorial)
 
 # Pronto! Agora o CMA consulta o manual de 500 páginas sob demanda
@@ -274,10 +274,10 @@ import eoa
 layer = eoa.default_layer(provider="gemini", api_key="...")
 
 # 1. Registra ferramentas de recuperação no ArtifactsAgent e ContextManagerAgent:
-aa = layer.get_agent("AA")
+aa = layer.get_agent("artifacts")
 aa.register_tool(minha_funcao_que_busca_shap_no_banco_ou_mlflow)
 
-cma = layer.get_agent("CMA")
+cma = layer.get_agent("context_manager")
 cma.register_tool(minha_funcao_que_busca_sensores_no_scada)
 
 # 2. Na hora de explicar, o dev passa apenas o identificador da ocorrência:

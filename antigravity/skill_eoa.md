@@ -6,7 +6,7 @@ Este arquivo é um espelho de referência da skill agêntica `.agents/skills/eoa
 1. **Developer is King / Almost Everything is Adaptable**:
    - Fornecer defaults sensatos, mas nunca engessados.
    - Qualquer agente padrão (CMA, AA, EA, VA) pode ser desativado, removido, sobrescrito ou reconfigurado.
-   - Prompts podem vir de arquivos `.md`, `.txt`, strings ou funções Python.
+   - Prompts vêm do default embutido, de uma `str` (texto) ou de um `Path` para arquivo `.md`.
    - Core ultra-enxuto: zero dependências pesadas de IA além de `pydantic`.
 
 2. **Desacoplamento e Fail-Safe ("Unplugged")**:

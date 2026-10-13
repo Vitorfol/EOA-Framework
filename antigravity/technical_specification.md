@@ -225,7 +225,7 @@ classDiagram
         <<Abstract>>
         +name: str
         +role: str
-        +prompt_template: str | Path | Callable
+        +prompt: str | Path | None
         +tools: list~Tool~
         +run(state: AgentState, llm: LLM) AgentResult
     }
@@ -277,11 +277,13 @@ classDiagram
         -orchestrator: OrchestratorEngine
         -agents: dict~str, BaseAgent~
         -session_store: SessionStore
+        -prompt_manager: PromptManager
         -llm: LLM
         +create_default_agents() None
         +register_agent(agent: BaseAgent) None
         +remove_agent(name: str) None
-        +override_agent(name: str, agent: BaseAgent) None
+        +get_agent(name: str) BaseAgent
+        +override_agent_prompt(name: str, prompt: str | Path) None
         +explain(...) ExplanationResponse
         +create_session(session_id: str) ChatSession
     }
@@ -391,7 +393,7 @@ O framework separa claramente duas necessidades distintas de dados:
 - **Modo Adaptável para Manuais Gigantes (RAG / Busca Livre)**:
   - Se a fábrica ou empresa tiver um manual de 500 páginas, o desenvolvedor pode plugar um `ContextRetriever` customizado (ex: usando LangChain Retriever, LlamaIndex, BM25 ou Elasticsearch):
   ```python
-  cma = layer.get_agent("CMA")
+  cma = layer.get_agent("context_manager")
   cma.set_retriever(my_rag_retriever_for_500_page_manual)
   ```
 - **Conclusão de Design**: O core permanece leve e cumpre o princípio científico do paper (sem forçar 500MB de banco vetorial no `pip install`), mas o desenvolvedor tem a liberdade de plugar RAG se o caso de uso dele exigir!
@@ -403,21 +405,40 @@ O framework separa claramente duas necessidades distintas de dados:
 ### A. Diretório de Prompts Default e Versionamento
 Para garantir que as instruções dos agentes sejam transparentes, auditáveis e facilmente inspecionadas:
 - O pacote empacota um diretório nativo `src/eoa/prompts/` contendo arquivos markdown (`.md`):
-  - `cma_default.md`: Instruções de resolução e mapeamento de contexto do CMA.
-  - `aa_default.md`: Instruções de análise de métricas XAI e predições do AA.
-  - `ea_default.md`: Instruções de síntese e tom narrativo do EA.
-  - `va_default.md`: Instruções do Quality Gate e critérios de scoring do VA.
+  - `context_manager_default.md`: Instruções de resolução e mapeamento de contexto do CMA.
+  - `artifacts_default.md`: Instruções de análise de métricas XAI e predições do AA.
+  - `explainer_default.md`: Instruções de síntese e tom narrativo do EA.
+  - `validator_default.md`: Instruções do Quality Gate e critérios de scoring do VA.
+- Todos seguem o formato **PTCF** (*Persona, Task, Context, Format*) e usam placeholders `{variavel}`
+  (ex.: `{prediction}`, `{xai}`, `{domain_context}`, `{user_query}`) preenchidos por `PromptManager.render`.
+- Nomes completos são a chave canônica de agentes e arquivos: `context_manager`, `artifacts`, `explainer`, `validator`.
 
 ### B. Mecanismo de Sobrescrita ("Developer is King")
-O desenvolvedor pode customizar qualquer prompt através do método `override_agent_prompt`:
-1. **Via Arquivo Externo**: `layer.override_agent_prompt("EA", source="meus_prompts/custom_ea.md")` (ou `.txt`).
-2. **Via String Direta**: `layer.override_agent_prompt("EA", source="Você é um engenheiro sênior...")`.
-3. **Via Função Geradora (Callable)**: `layer.override_agent_prompt("EA", source=minha_funcao_de_prompt)`.
+A customização de prompts é transparente, cirúrgica e direta. A fonte é sempre explícita, nunca adivinhada
+(resolvida por `PromptManager.resolve`):
+- `None` (padrão): usa o `<agente>_default.md` embutido.
+- `str`: o próprio texto do prompt.
+- `Path`: arquivo `.md` local, lido imediatamente (erro amigável se não existir ou não for `.md`).
+
+O desenvolvedor pode customizar o prompt de duas formas intuitivas:
+1. **Via `layer.override_agent_prompt(name, prompt)` (Na Camada / Padrão Mais Rápido)**:
+   ```python
+   # Sobrescreve o prompt de um agente já ativo sem reconstruir a camada ou perder tools:
+   layer.override_agent_prompt("explainer", Path("meus_prompts/custom_explainer.md"))
+   # Ou passando a string diretamente:
+   layer.override_agent_prompt("explainer", "Você é um engenheiro mecânico sênior...")
+   ```
+2. **Via Construtor do Agente (Na Criação / Testes Isolados)**:
+   ```python
+   # Ao instanciar um agente específico ou especializado:
+   ea = ExplainerAgent(prompt=Path("meus_prompts/custom_explainer.md"))
+   ```
+Callables e arquivos `.txt` ficam fora da v0.1.0 para manter simplicidade, previsibilidade e robustez.
 
 ### C. Agentes Especializados (`SpecializedAgent`)
 O framework suporta a injeção de agentes dedicados a subsistemas industriais específicos:
 - Classe `SpecializedAgent` herda de `BaseAgent`.
-- Registro no fluxo: `layer.register_specialized_agent(name="TurbinaSpecialist", role="Analista de Mancais", prompt_source="...")`.
+- Registro no fluxo: `layer.register_agent(SpecializedAgent(name="turbina_specialist", role="Analista de Mancais", prompt=Path("...")))` (sem default, o `prompt` é obrigatório).
 - No ciclo de orquestração, o `OrchestratorEngine` avalia metadados e aciona os agentes especializados pertinentes ao subsistema do alerta.
 
 ---

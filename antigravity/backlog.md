@@ -181,18 +181,19 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 📝 ÉPICO 05: Gerenciador de Prompts Nativos e Sobrescrita
 > **Objetivo**: Prompts em arquivos Markdown limpos, versionados e 100% customizáveis pelo dev.
 
-- [ ] **TASK-05.1: Criação dos Prompts Default (`src/eoa/prompts/*.md`)**
-  - [ ] `cma_default.md`: Instruções para o Context Manager Agent mapear variáveis e manuais.
-  - [ ] `aa_default.md`: Instruções para o Artifacts Agent interpretar relevância de sensores e métricas.
-  - [ ] `ea_default.md`: Instruções para o Explainer Agent sintetizar narrativas acionáveis e claras.
-  - [ ] `va_default.md`: Instruções para o Validator Agent auditar alucinações e calcular nota de fidelidade.
-- [ ] **TASK-05.2: Motor de Carregamento e Sobrescrita (`src/eoa/prompts/manager.py`)**
-  - [ ] Implementar `PromptManager` com suporte a:
-    - Carregar de pacote embutido (defaults).
-    - Sobrescrever apontando para arquivos `.md` ou `.txt` locais do dev.
-    - Sobrescrever com strings Python diretas ou funções geradoras (callables).
-    - Interpolação segura de variáveis de template (`{variavel}`).
-  - [ ] Testes unitários de carregamento, sobrescrita e erro amigável se arquivo não for encontrado.
+- [x] **TASK-05.1: Criação dos Prompts Default (`src/eoa/prompts/*.md`)**
+  - [x] Formato PTCF (Persona, Task, Context, Format) com placeholders `{variavel}`; nomes completos como chave canônica.
+  - [x] `context_manager_default.md`: Instruções para o Context Manager Agent mapear variáveis e manuais.
+  - [x] `artifacts_default.md`: Instruções para o Artifacts Agent interpretar relevância de sensores e métricas.
+  - [x] `explainer_default.md`: Instruções para o Explainer Agent sintetizar narrativas acionáveis e claras.
+  - [x] `validator_default.md`: Instruções para o Validator Agent auditar alucinações e calcular nota de fidelidade.
+- [x] **TASK-05.2: Motor de Carregamento e Sobrescrita (`src/eoa/prompts/manager.py`)**
+  - [x] Implementar `PromptManager` (`resolve` + `render`) com suporte a:
+    - Carregar de pacote embutido (defaults) quando `source=None`.
+    - Fonte explícita: `str` (texto do prompt) ou `Path` (arquivo `.md` local). Sem `callable`, sem `.txt`.
+    - Interpolação segura de variáveis de template (`{variavel}`), preservando chaves JSON.
+  - [x] Customização por um único caminho: `prompt=` no construtor do agente (consumido no EP06).
+  - [x] Testes unitários de carregamento, fontes, interpolação e erro amigável se arquivo não for encontrado.
 
 ---
 
@@ -239,7 +240,7 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 > **Objetivo**: A interface amigável que faz o desenvolvedor dizer *"Nossa, quem fez isso realmente se importou com a facilidade de uso"*.
 
 - [ ] **TASK-08.1: Implementação da `ExplanationLayer` (`src/eoa/layer.py` & `src/eoa/__init__.py`)**
-  - [ ] Métodos limpos: `explain(...)`, `create_session(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `remove_agent(...)`.
+  - [ ] Métodos limpos: `explain(...)`, `create_session(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `get_agent(...)`, `remove_agent(...)`.
   - [ ] Suporte aos dois modos de consumo: Modo Direto (passando predição/XAI) e Modo Autônomo (passando incident_id).
   - [ ] Função helper `eoa.default_layer(...)` para inicialização imediata em 1 linha.
   - [ ] Testes de ponta a ponta dos cenários da jornada do desenvolvedor.
