@@ -95,7 +95,9 @@ class TestRender:
         rendered = PromptManager.render(
             template, prediction="p", xai="x", domain_context="c", explanation="e"
         )
-        assert '{"score":' in rendered
+        assert '"score":' in rendered
+        assert '"issues":' in rendered
+        assert '"critique":' in rendered
         assert "{explanation}" not in rendered
 
     def test_default_context_manager_prompt_renders_all_placeholders(self) -> None:
