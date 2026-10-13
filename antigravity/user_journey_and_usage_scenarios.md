@@ -18,6 +18,7 @@ Este documento detalha **como o desenvolvedor vai usar o framework no dia a dia*
 | **Cenário 5** | **Manuais Técnicos Gigantes**: Busca estruturada padrão vs. Plugando RAG. | 📚 4 min |
 | **Cenário 6** | **Integração num Sistema Real (FastAPI / Backend Legado)**: Degradação graciosa. | 🏭 5 min |
 | **Cenário 7** | **Modo Autônomo com Tools (Query-Based)**: Passar apenas o ID do alerta e deixar agentes buscarem. | 🤖 3 min |
+| **Cenário 8** | **Rampa Progressiva (Zero ML Inicial)**: Consultas de manuais e regras antes de ter modelo de ML pronto. | 🚀 < 1 min |
 
 ---
 
@@ -289,4 +290,31 @@ response = layer.explain(
 # 3. Os agentes executaram as tools, montaram os contratos internamente,
 # sintetizaram e validaram a explicação de forma 100% autônoma!
 print(response.narrative)
+```
+
+---
+
+## 🚀 Cenário 8: Rampa Progressiva (Zero ML Inicial / Onboarding Imediato)
+
+O desenvolvedor acabou de instalar o framework e ainda **não tem o modelo preditivo nem o SHAP calculados**, mas quer testar o pipeline e obter explicações baseadas em manuais e regras operacionais. O framework não o trava:
+
+```python
+import eoa
+
+layer = eoa.default_layer(provider="gemini", api_key="...")
+
+# O dev passa apenas a dúvida e o contexto do subsistema (prediction e xai são opcionais):
+response = layer.explain(
+    user_query="Qual é o procedimento de segurança se a pressão PS1 passar de 4.0 bar?",
+    context={
+        "manual_regras": "Procedimento 12: Se PS1 > 4.0 bar, acione o bypass e isole a linha.",
+        "sensores": {"PS1": "Pressão de entrada da linha de fluido"}
+    }
+)
+
+# O CMA processa as regras, o Explainer redige a instrução e o Validador audita:
+print(response.narrative)
+# -> "Conforme o Procedimento 12, caso a pressão de entrada (PS1) exceda 4.0 bar,
+#     o operador deve acionar imediatamente a válvula de bypass e isolar a linha..."
+print(f"Auditoria: {response.validation_score}/10")
 ```

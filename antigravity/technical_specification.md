@@ -154,13 +154,26 @@ PADRÕES DE INTEGRAÇÃO DO FRAMEWORK EOA
  ┌────────────────────────────────────────────────────────┐
  │ ExplainerAgent (EA) e ValidatorAgent (VA)              │
  └────────────────────────────────────────────────────────┘
+
+ [ PADRÃO C: MODO CONCEITUAL / RAMPA PROGRESSIVA (Zero ML Inicial) ]
+ ┌────────────────────────────────────────────────────────┐
+ │ Desenvolvedor no Onboarding ou Consultas de Domínio    │
+ │ Passa apenas a dúvida e contexto: explain(query=...)   │
+ └──────────────────────────┬─────────────────────────────┘
+                            │ prediction=None (Sem modelo de ML pronto ainda)
+                            ▼
+ ┌────────────────────────────────────────────────────────┐
+ │ EOA Layer opera com foco no ContextManagerAgent (CMA), │
+ │ gerando explicação de manuais/regras sem exigir ML     │
+ └────────────────────────────────────────────────────────┘
 ==========================================================================================================
 ```
 
 - **A diferença é quem instancia o contrato**:
   - No Modo Direto: O desenvolvedor passa o dicionário e o EOA preenche o contrato.
   - No Modo Autônomo (Query-Based): Os agentes (AA e CMA) executam suas Tools/Consultas e eles mesmos preenchem o contrato antes de enviar ao Explainer.
-- **Decisão Arquitetural**: A implementação das ferramentas de consulta autônoma será feita no **Épico 06 (Agentes e Tools)** e **Épico 07 (Orquestração)**.
+  - No Modo Conceitual (Rampa Progressiva): `prediction` e `xai` são opcionais (`None`), permitindo que o desenvolvedor comece a usar a camada apenas com contexto de manuais/regras antes de plugar seus modelos de ML.
+- **Decisão Arquitetural**: A implementação das ferramentas de consulta autônoma e rampa flexível será feita no **Épico 06 (Agentes e Tools)**, **Épico 07 (Orquestração)** e **Épico 08 (ExplanationLayer)**.
 
 ---
 
