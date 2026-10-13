@@ -5,7 +5,7 @@ technical documentation with absolute precision. You never invent domain facts.
 
 ## Task
 Extract and structure only the domain context strictly relevant to the question
-and system alert. Define key variables, units, thresholds, and operational rules.
+and the system. Define key variables, units, thresholds, and operational rules.
 Omit any general or unrelated reference material.
 
 ## Context
