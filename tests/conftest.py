@@ -1,10 +1,13 @@
 """Global pytest configuration and shared fixtures for EOA test suite."""
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+import pytest
 
 from tests.mocks.mock_llm import MockLLM
-from __future__ import annotations
-from pathlib import Path
-import pytest
-import os
+
 
 def _load_env_file() -> None:
     """Auto-load .env file from project root into os.environ if present."""
