@@ -205,7 +205,7 @@ response = layer.explain(
         "manual_snippet": "Capítulo 4.2: Trocas térmicas anormais ocorrem quando EPS1 > 3.0kW...",
         "sensor_dictionary": {"PS1": "Pressão de entrada", "EPS1": "Potência consumida"}
     },
-    user_query="Explique o alerta."
+    user_query="Explique o alerta.",
 )
 
 # -------------------------------------------------------------
@@ -247,7 +247,7 @@ async def monitorar_sensor(leitura: dict):
     explicacao = explanation_layer.explain(
         prediction=predicao,
         xai=xai_importancias,
-        user_query="Resuma a saúde do equipamento"
+        user_query="Resuma a saúde do equipamento",
     )
 
     # 3. Retorna a resposta completa
@@ -259,7 +259,7 @@ async def monitorar_sensor(leitura: dict):
         "explicacao_texto": explicacao.narrative,
         "validacao_aprovada": explicacao.validation_passed,
         "auditoria_score": explicacao.validation_score,
-        "fallback_utilizado": explicacao.fallback_used
+        "fallback_utilizado": explicacao.fallback_used,
     }
 ```
 
@@ -281,14 +281,15 @@ aa.register_tool(minha_funcao_que_busca_shap_no_banco_ou_mlflow)
 cma = layer.get_agent("context_manager")
 cma.register_tool(minha_funcao_que_busca_sensores_no_scada)
 
-# 2. Na hora de explicar, o dev passa apenas o identificador da ocorrência:
+# 2. Na hora de explicar, o dev passa identificadores agnósticos via query_params
+# (ou usa o atalho conveniente incident_id="alerta_turbina_981"):
 response = layer.explain(
-    incident_id="alerta_turbina_981",
-    user_query="O que causou este alerta e qual a criticidade?"
+    query_params={"prediction_id": "pred_402", "equipment_id": "turbina_981"},
+    user_query="O que causou este alerta e qual a criticidade?",
 )
 
-# 3. Os agentes executaram as tools, montaram os contratos internamente,
-# sintetizaram e validaram a explicação de forma 100% autônoma!
+# 3. Os agentes executam as tools que casam com os parâmetros fornecidos,
+# montam os contratos internamente, sintetizam e validam a explicação de forma 100% autônoma!
 print(response.narrative)
 ```
 
@@ -308,8 +309,8 @@ response = layer.explain(
     user_query="Qual é o procedimento de segurança se a pressão PS1 passar de 4.0 bar?",
     context={
         "manual_regras": "Procedimento 12: Se PS1 > 4.0 bar, acione o bypass e isole a linha.",
-        "sensores": {"PS1": "Pressão de entrada da linha de fluido"}
-    }
+        "sensores": {"PS1": "Pressão de entrada da linha de fluido"},
+    },
 )
 
 # O CMA processa as regras, o Explainer redige a instrução e o Validador audita:
