@@ -304,6 +304,7 @@ class TestSQLiteSessionStore:
         assert nested_db.exists()
         assert len(store.get_history("nested_sess")) == 1
 
+    @pytest.mark.integration
     @pytest.mark.asyncio
     @pytest.mark.skipif(
         not __import__("os").environ.get("GEMINI_API_KEY"),

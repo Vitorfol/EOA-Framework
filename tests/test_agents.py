@@ -163,7 +163,7 @@ class TestArtifactsAgent:
                 confidence_or_probability=0.85,
             ),
             xai=XAIArtifact(
-                feature_importances={"PS1": 0.45, "EPS1": 0.30},
+                feature_attributions={"PS1": 0.45, "EPS1": 0.30},
                 method="SHAP",
             ),
         )
@@ -194,7 +194,7 @@ class TestArtifactsAgent:
                     "confidence_or_probability": 0.92,
                 },
                 "xai": {
-                    "feature_importances": {"vibration": 0.70},
+                    "feature_attributions": {"vibration": 0.70},
                 },
             }
 
@@ -212,7 +212,7 @@ class TestArtifactsAgent:
         assert state.prediction is not None
         assert state.prediction.target_variable == "Turbine State"
         assert state.xai is not None
-        assert state.xai.feature_importances["vibration"] == 0.70
+        assert state.xai.feature_attributions["vibration"] == 0.70
         assert res.output == "Turbine Anomaly: Vibration driver."
 
 

@@ -166,7 +166,7 @@ class TestLiveAgentsWithGemini:
 
         assert result.output
         assert len(result.output) > 30
-        assert state.explanation == result.output
+        assert state.draft_explanation == result.output
         assert result.trace.agent_name == "explainer"
         assert result.trace.execution_time_ms > 0
         assert result.trace.status == "success"
@@ -184,7 +184,7 @@ class TestLiveAgentsWithGemini:
             context_summary=(
                 "Manual 4.2: pressão PS1 abaixo de 3.0 bar requer inspeção da válvula."
             ),
-            explanation=(
+            draft_explanation=(
                 "Detectamos um risco de 84% de falha no sistema de resfriamento. "
                 "O sensor de pressão PS1 é o principal fator causador. De acordo com "
                 "o manual 4.2, a equipe deve inspecionar a válvula de sucção."
@@ -195,7 +195,7 @@ class TestLiveAgentsWithGemini:
 
         assert state.validation_result is not None
         assert 0.0 <= state.validation_result.score <= 10.0
-        assert isinstance(state.validation_result.is_valid, bool)
+        assert isinstance(state.validation_result.passed, bool)
         assert isinstance(state.validation_result.critique, str)
         assert result.trace.agent_name == "validator"
         assert result.trace.execution_time_ms > 0
@@ -254,8 +254,8 @@ class TestLiveAgentsWithGemini:
 
         # 3. Explainer synthesis
         await ea.arun(state, live_gemini_llm)
-        assert state.explanation is not None
-        assert len(state.explanation) > 30
+        assert state.draft_explanation is not None
+        assert len(state.draft_explanation) > 30
 
         # 4. Validator LLM-as-a-Judge audit
         await va.arun(state, live_gemini_llm)
