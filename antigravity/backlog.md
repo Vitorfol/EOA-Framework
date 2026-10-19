@@ -200,27 +200,33 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 🤖 ÉPICO 06: Implementação dos Agentes Nucleares e Especializados
 > **Objetivo**: Implementar as "caixas modulares" do paper com independência funcional.
 
-- [ ] **TASK-06.1: Classes Base (`BaseAgent`, `Tool`, `AgentState`) (`src/eoa/agents/base.py`)**
-  - [ ] Definir ciclo de vida do agente: `run(state: AgentState, llm: LLM) -> AgentResult`.
-  - [ ] Definir abstração limpa de `Tool` para agentes que usam ferramentas.
-- [ ] **TASK-06.2: `ContextManagerAgent` (CMA) com `ContextRetriever` Plugável (`src/eoa/agents/context.py`)**
-  - [ ] Implementar `StructuredContextRetriever` padrão (lê dicionários e schemas JSON).
-  - [ ] Implementar hook `cma.set_retriever(...)` para permitir que o dev plugue busca vetorial/RAG para manuais de 500 páginas.
-  - [ ] Testes unitários do CMA com recuperação estruturada e com mock de busca vetorial customizada.
-- [ ] **TASK-06.3: `ArtifactsAgent` (AA) (`src/eoa/agents/artifacts.py`)**
-  - [ ] Processar predições analíticas e importâncias XAI em resumos técnicos compreensíveis.
-  - [ ] Suporte a ferramentas (tools) para recuperação autônoma de predições e XAI por ID de incidente.
-  - [ ] Testes unitários com fixtures de predições reais de manutenção preditiva.
-- [ ] **TASK-06.4: `ExplainerAgent` (EA) (`src/eoa/agents/explainer.py`)**
-  - [ ] Sintetizar evidências do AA + contexto do CMA + histórico de chat em narrativa em linguagem natural.
-  - [ ] Testes unitários validando geração da narrativa contextualizada.
-- [ ] **TASK-06.5: `ValidatorAgent` (VA) com Scoring e Refinamento (`src/eoa/agents/validator.py`)**
-  - [ ] Implementar auditoria com LLM-as-a-Judge: avaliar fidelidade, alucinação e conformidade técnica (nota de 0 a 10).
-  - [ ] Configuração de threshold (padrão 7.0) e geração de crítica estruturada para direcionar correções.
-  - [ ] Testes unitários de aprovação (nota >= 7.0) e reprovação com sugestão de correção.
-- [ ] **TASK-06.6: `SpecializedAgent` (SA) e Registro Dinâmico (`src/eoa/agents/specialized.py`)**
-  - [ ] Implementar agente especialista genérico com suporte a domínio específico e ferramentas próprias.
-  - [ ] Testes unitários de registro e execução de um especialista de exemplo (ex.: especialista em turbinas).
+- [x] **TASK-06.1: Classes Base (`BaseAgent`, `Tool`, `AgentState`) (`src/eoa/agents/base.py`)**
+  - [x] Definir ciclo de vida do agente: `run(state: AgentState, llm: LLM) -> AgentResult` e `arun(...)` assíncrono.
+  - [x] Implementar telemetria automática (`execution_time_ms`) e rastreabilidade (`AgentStepTrace`).
+  - [x] Definir abstração limpa de `Tool` (`src/eoa/tools/base.py`) com introspecção de assinatura via `inspect.signature` e suporte síncrono/assíncrono.
+- [x] **TASK-06.2: `ContextManagerAgent` (CMA) com `ContextRetriever` Plugável (`src/eoa/agents/context.py`)**
+  - [x] Implementar `StructuredContextRetriever` padrão (lê dicionários e schemas JSON).
+  - [x] Implementar hook `cma.set_retriever(...)` com protocolo PEP 544 permitindo busca vetorial/RAG customizada ou callables Python.
+  - [x] Suporte à recuperação autônoma via `tools` casando com `query_params`.
+  - [x] Testes unitários do CMA com recuperação estruturada e com mock de busca vetorial customizada.
+- [x] **TASK-06.3: `ArtifactsAgent` (AA) (`src/eoa/agents/artifacts.py`)**
+  - [x] Processar predições analíticas e importâncias XAI em resumos técnicos compreensíveis.
+  - [x] Otimização Zero ML / Progressive Ramp: bypass imediato do LLM quando não houver predição, economizando 100% dos tokens de inferência.
+  - [x] Suporte a ferramentas (tools) para recuperação autônoma de predições e XAI via `query_params` flexíveis e agnósticos.
+  - [x] Testes unitários com fixtures de predições reais de manutenção preditiva e modo Zero ML.
+- [x] **TASK-06.4: `ExplainerAgent` (EA) (`src/eoa/agents/explainer.py`)**
+  - [x] Sintetizar evidências do AA + contexto do CMA + especialistas + histórico multi-turn de chat (`ChatMessage`) em narrativa clara.
+  - [x] Incorporar crítica anterior do `ValidatorAgent` em loops de refinamento.
+  - [x] Testes unitários validando geração da narrativa contextualizada com histórico.
+- [x] **TASK-06.5: `ValidatorAgent` (VA) com Scoring e Refinamento (`src/eoa/agents/validator.py`)**
+  - [x] Implementar auditoria com LLM-as-a-Judge: avaliar fidelidade, alucinação e conformidade técnica (nota de 0 a 10).
+  - [x] Parser resiliente a blocos Markdown de código JSON (```json ... ```) e validação matemática de notas.
+  - [x] Configuração dinâmica de `threshold` (padrão 7.0, validado entre 0.0 e 10.0) e geração de `ValidationResult` estruturado.
+  - [x] Testes unitários de aprovação (nota >= 7.0) e reprovação com sugestão de correção.
+- [x] **TASK-06.6: `SpecializedAgent` (SA) e Registro Dinâmico (`src/eoa/agents/specialized.py`)**
+  - [x] Implementar agente especialista genérico com suporte a domínio específico e ferramentas próprias.
+  - [x] Registro automático de insights no estado compartilhado `state.specialist_insights[self.name]`.
+  - [x] Testes unitários de registro e execução de especialista de exemplo (ex.: especialista em turbinas).
 
 ---
 

@@ -5,6 +5,19 @@ and predictive maintenance systems, featuring multi-agent quality gates
 and unplugged fail-safe operation.
 """
 
+from eoa.agents import (
+    AgentResult,
+    AgentState,
+    ArtifactsAgent,
+    BaseAgent,
+    ContextManagerAgent,
+    ContextRetriever,
+    ExplainerAgent,
+    SpecializedAgent,
+    StructuredContextRetriever,
+    ValidationResult,
+    ValidatorAgent,
+)
 from eoa.contracts import (
     AgentStepTrace,
     DomainContext,
@@ -23,6 +36,7 @@ from eoa.memory import (
     SQLiteSessionStore,
 )
 from eoa.prompts import PromptManager
+from eoa.tools import Tool
 
 __version__: str = "0.1.0"
 
@@ -42,4 +56,16 @@ __all__: tuple[str, ...] = (
     "SessionStore",
     "SQLiteSessionStore",
     "PromptManager",
+    "Tool",
+    "AgentState",
+    "AgentResult",
+    "ValidationResult",
+    "BaseAgent",
+    "ContextRetriever",
+    "StructuredContextRetriever",
+    "ContextManagerAgent",
+    "ArtifactsAgent",
+    "ExplainerAgent",
+    "ValidatorAgent",
+    "SpecializedAgent",
 )

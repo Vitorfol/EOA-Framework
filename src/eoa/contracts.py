@@ -240,6 +240,16 @@ class DomainContext(BaseModel):
         """Coerce None context dictionaries into empty dictionaries."""
         return v if v is not None else {}
 
+    def is_empty(self) -> bool:
+        """Return True if all context containers are empty, False otherwise."""
+        return not (
+            self.variables
+            or self.thresholds
+            or self.documents
+            or self.hierarchy
+            or self.schemas
+        )
+
     def add_variable(self, name: str, description: str) -> None:
         """Add or update a variable or feature definition.
 
