@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from eoa.agents.base import AgentState, BaseAgent, ValidationResult
+from eoa.agents.context import StructuredContextRetriever
 from eoa.contracts import AgentStepTrace
 from eoa.llm.base import LLM
 from eoa.prompts.manager import PromptManager
@@ -80,25 +81,55 @@ class ValidatorAgent(BaseAgent):
 
         try:
             parsed = json.loads(cleaned)
-            if isinstance(parsed, dict):
-                return parsed
+            if isinstance(parsed, dict) and "score" in parsed:
+                return {**parsed, "parse_error": False}
         except Exception:
             pass
 
         # Fallback heuristic: attempt regex extraction of score, issues, critique
-        score = 0.0
         score_match = re.search(r'"score"\s*:\s*([0-9]+(?:\.[0-9]+)?)', cleaned)
         if score_match:
             try:
                 score = float(score_match.group(1))
+                return {
+                    "score": score,
+                    "issues": [
+                        "Recovered score via regex fallback from malformed JSON."
+                    ],
+                    "critique": cleaned,
+                    "parse_error": False,
+                }
             except ValueError:
-                score = 0.0
+                pass
 
         return {
-            "score": score,
+            "score": 0.0,
             "issues": ["Failed to parse strict JSON evaluation from model output."],
-            "critique": cleaned,
+            "critique": "",
+            "parse_error": True,
         }
+
+    def _format_ground_truth_domain(self, state: AgentState) -> str:
+        parts: list[str] = []
+        if state.context is not None and not state.context.is_empty():
+            raw_gt = StructuredContextRetriever().retrieve(
+                query=state.user_query,
+                context=state.context,
+            )
+            parts.append(f"Ground-Truth Domain Context:\n{raw_gt}")
+
+        if state.context_summary:
+            if parts:
+                parts.append(
+                    f"Retrieved Context Digest (CMA):\n{state.context_summary}"
+                )
+            else:
+                parts.append(state.context_summary)
+
+        if not parts:
+            return "No domain context provided."
+
+        return "\n\n".join(parts)
 
     def _build_prompt(self, state: AgentState) -> str:
         pred_text = (
@@ -111,11 +142,7 @@ class ValidatorAgent(BaseAgent):
             if state.xai
             else "No feature attribution (XAI) artifact provided."
         )
-        domain_text = state.context_summary or (
-            str(state.context.model_dump())
-            if state.context
-            else "No domain context provided."
-        )
+        domain_text = self._format_ground_truth_domain(state)
         explanation_text = state.draft_explanation or ""
 
         return PromptManager.render(
@@ -128,14 +155,16 @@ class ValidatorAgent(BaseAgent):
 
     def _process_output(self, raw_output: str, state: AgentState) -> ValidationResult:
         parsed = self._parse_llm_json(raw_output)
+        parse_error = bool(parsed.get("parse_error", False))
 
         raw_score = parsed.get("score", 0.0)
         try:
             score = max(0.0, min(10.0, float(raw_score)))
         except (ValueError, TypeError):
             score = 0.0
+            parse_error = True
 
-        passed = score >= self.threshold
+        passed = (score >= self.threshold) and not parse_error
 
         raw_issues = parsed.get("issues", [])
         issues = (
@@ -145,21 +174,22 @@ class ValidatorAgent(BaseAgent):
         )
         critique = str(parsed.get("critique", ""))
 
-        if not passed:
+        if parse_error:
+            status = "error"
+            summary = "Validation failed: Unable to parse JSON score from judge output."
+        elif not passed:
             issues_summary = ", ".join(issues)
             fallback_critique = (
                 f"Score {score:.1f} is below threshold {self.threshold:.1f}. "
                 f"Issues: {issues_summary}"
             )
             state.validation_critique = critique or fallback_critique
+            status = "refinement"
+            summary = f"Validated: Refine (Score {score:.1f}/{self.threshold:.1f})."
         else:
             state.validation_critique = None
-
-        status = "success" if passed else "refinement"
-        if passed:
+            status = "success"
             summary = f"Validated: Approved (Score {score:.1f}/{self.threshold:.1f})."
-        else:
-            summary = f"Validated: Refine (Score {score:.1f}/{self.threshold:.1f})."
 
         result = ValidationResult(
             output=raw_output,
@@ -167,12 +197,18 @@ class ValidatorAgent(BaseAgent):
             passed=passed,
             issues=issues,
             critique=critique,
+            parse_error=parse_error,
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
                 summary=summary,
                 status=status,
-                details={"score": score, "passed": passed, "issues_count": len(issues)},
+                details={
+                    "score": score,
+                    "passed": passed,
+                    "issues_count": len(issues),
+                    "parse_error": parse_error,
+                },
             ),
         )
         state.validation_result = result

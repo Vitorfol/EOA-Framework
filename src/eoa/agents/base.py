@@ -31,7 +31,7 @@ class AgentResult(BaseModel):
         metadata: Optional auxiliary structured data or intermediate artifacts.
     """
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     output: str = Field(..., description="Main output or payload from agent execution.")
     trace: AgentStepTrace = Field(
@@ -52,6 +52,7 @@ class ValidationResult(AgentResult):
         passed: Boolean flag indicating if score >= validator threshold.
         issues: List of concrete factual discrepancies or detected hallucinations.
         critique: Directives instructing the explainer how to refine the explanation.
+        parse_error: True if the LLM judge response could not be parsed as valid JSON.
     """
 
     score: float = Field(
@@ -71,6 +72,10 @@ class ValidationResult(AgentResult):
     critique: str = Field(
         default="",
         description="Actionable guidance to correct the narrative if rejected.",
+    )
+    parse_error: bool = Field(
+        default=False,
+        description="True if the validator failed to parse a valid score from the LLM.",
     )
 
 
@@ -93,7 +98,7 @@ class AgentState(BaseModel):
         validation_result: Evaluated audit result produced by VA.
     """
 
-    model_config = ConfigDict(extra="allow", populate_by_name=True)
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     user_query: str = Field(..., description="Operational question or user prompt.")
     query_params: dict[str, Any] = Field(
