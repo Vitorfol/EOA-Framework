@@ -159,7 +159,7 @@ class TestLiveAgentsWithGemini:
             artifacts_summary=(
                 "Predição: Degradação Severa (84% risco). Fator principal: PS1."
             ),
-            chat_history=history,
+            history=history,
         )
 
         result = ea.run(state, live_gemini_llm)
