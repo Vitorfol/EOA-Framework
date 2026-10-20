@@ -41,33 +41,51 @@ class SpecializedAgent(BaseAgent):
             tools=tools,
         )
 
-    def _build_prompt(self, state: AgentState) -> str:
+    def _build_prompt(
+        self,
+        state: AgentState,
+        tool_outputs: list[Any] | None = None,
+    ) -> str:
         pred_text = (
             str(state.prediction.model_dump()) if state.prediction else "Not provided"
         )
         xai_text = str(state.xai.model_dump()) if state.xai else "Not provided"
         ctx_text = str(state.context.model_dump()) if state.context else "Not provided"
+        context_summary_text = state.context_summary or "Not provided"
+        artifacts_summary_text = state.artifacts_summary or "Not provided"
+        tools_text = (
+            "\n".join(str(item) for item in tool_outputs)
+            if tool_outputs
+            else "Not provided"
+        )
 
-        return PromptManager.render(
+        rendered = PromptManager.render(
             self.prompt,
             prediction=pred_text,
             xai=xai_text,
             context=ctx_text,
+            context_summary=context_summary_text,
+            artifacts_summary=artifacts_summary_text,
+            tool_outputs=tools_text,
             user_query=state.user_query,
             query_params=str(state.query_params),
         )
+        if tool_outputs and "{tool_outputs}" not in self.prompt:
+            rendered = f"{rendered}\n\nTool Outputs:\n{tools_text}"
+        return rendered
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        # Execute any tools matching query_params if helpful
+        tool_outputs: list[Any] = []
         if state.query_params and self.tools:
-            self._execute_matching_tools_sync(state.query_params)
+            tool_outputs = self._execute_matching_tools_sync(state.query_params)
 
-        rendered_prompt = self._build_prompt(state)
+        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
         output = llm.generate(rendered_prompt)
         state.specialist_insights[self.name] = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
@@ -77,15 +95,17 @@ class SpecializedAgent(BaseAgent):
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
+        tool_outputs: list[Any] = []
         if state.query_params and self.tools:
-            await self._execute_matching_tools_async(state.query_params)
+            tool_outputs = await self._execute_matching_tools_async(state.query_params)
 
-        rendered_prompt = self._build_prompt(state)
+        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
         output = await llm.agenerate(rendered_prompt)
         state.specialist_insights[self.name] = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,

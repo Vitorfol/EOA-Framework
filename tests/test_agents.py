@@ -314,9 +314,47 @@ class TestValidatorAgent:
         with pytest.raises(ValueError, match="between 0.0 and 10.0"):
             va.threshold = -1.0
 
+    def test_validator_prioritizes_ground_truth_domain_context(self) -> None:
+        va = ValidatorAgent(threshold=7.0)
+        llm = MockLLM(default_response='{"score": 9.0, "issues": [], "critique": ""}')
+
+        state = AgentState(
+            user_query="Explain alert",
+            context=DomainContext(
+                variables={"PS1": "Ground truth inlet pressure (bar)"},
+                thresholds={"PS1_max": "4.0 bar"},
+            ),
+            context_summary="CMA hallucinated summary: PS1 max is 99.0 bar",
+            draft_explanation="PS1 exceeded 4.0 bar.",
+        )
+
+        va.run(state, llm)
+        assert "Ground-Truth Domain Context:" in llm.last_prompt
+        assert "Ground truth inlet pressure (bar)" in llm.last_prompt
+        assert "4.0 bar" in llm.last_prompt
+        assert "Retrieved Context Digest (CMA):" in llm.last_prompt
+
+    def test_validator_parse_error_does_not_corrupt_critique(self) -> None:
+        va = ValidatorAgent(threshold=7.0)
+        llm = MockLLM(default_response="I am a broken judge output without any JSON.")
+
+        state = AgentState(
+            user_query="Explain alert",
+            draft_explanation="Cooler pressure exceeded limits.",
+            validation_critique="Previous valid critique",
+        )
+
+        res = va.run(state, llm)
+        assert res.parse_error is True
+        assert res.passed is False
+        assert res.trace.status == "error"
+        assert res.trace.details["parse_error"] is True
+        # Must not overwrite existing validation_critique with malformed judge text
+        assert state.validation_critique == "Previous valid critique"
+
 
 # =========================================================================
-# 6. Tests for SpecializedAgent (SA)
+# 6. Tests for SpecializedAgent (SA) & Strict State Validation
 # =========================================================================
 class TestSpecializedAgent:
     def test_specialized_agent_execution(self, tmp_path: Path) -> None:
@@ -348,6 +386,44 @@ class TestSpecializedAgent:
         )
         assert "Inspect blade vibration" in llm.last_prompt
 
+    def test_specialized_agent_injects_tools_and_summaries(self) -> None:
+        def fetch_bearing_telemetry(turbine_id: str) -> dict:
+            return {"turbine": turbine_id, "bearing_temp_c": 94.5}
+
+        sa = SpecializedAgent(
+            name="bearing_specialist",
+            prompt=(
+                "Query: {user_query} | CMA: {context_summary} | "
+                "AA: {artifacts_summary} | Tools: {tool_outputs}"
+            ),
+            tools=[fetch_bearing_telemetry],
+        )
+
+        llm = MockLLM(default_response="Bearing temperature is critically high.")
+        state = AgentState(
+            user_query="Check bearing status",
+            query_params={"turbine_id": "T-101"},
+            context_summary="Max bearing temp is 85C",
+            artifacts_summary="Anomaly score 0.91",
+        )
+
+        res = sa.run(state, llm)
+        assert "Max bearing temp is 85C" in llm.last_prompt
+        assert "Anomaly score 0.91" in llm.last_prompt
+        assert "94.5" in llm.last_prompt
+        assert res.metadata["tool_outputs"] == [
+            {"turbine": "T-101", "bearing_temp_c": 94.5}
+        ]
+
     def test_specialized_agent_requires_explicit_prompt(self) -> None:
         with pytest.raises(ValueError, match="requires an explicit prompt"):
             SpecializedAgent(name="custom", prompt="")  # type: ignore[arg-type]
+
+    def test_agent_state_forbids_unknown_fields(self) -> None:
+        from pydantic import ValidationError
+
+        with pytest.raises(ValidationError):
+            AgentState(
+                user_query="Hello",
+                chat_history=[],  # type: ignore[call-arg]
+            )
