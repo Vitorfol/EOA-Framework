@@ -23,7 +23,6 @@ class ValidatorAgent(BaseAgent):
 
     Args:
         threshold: Acceptance score cutoff (0.0 to 10.0). Defaults to 7.0.
-        max_refinements: Max refinement loops in orchestration. Defaults to 3.
         prompt: Custom prompt text, Path to .md file, or None.
         role: Descriptive role for telemetry. Defaults to "Quality Gate Auditor".
         tools: Optional tools for external auditing utilities.
@@ -32,7 +31,6 @@ class ValidatorAgent(BaseAgent):
     def __init__(
         self,
         threshold: float = 7.0,
-        max_refinements: int = 3,
         prompt: str | Path | None = None,
         role: str | None = "Quality Gate Auditor",
         tools: list[Any] | None = None,
@@ -45,7 +43,6 @@ class ValidatorAgent(BaseAgent):
         )
         self._validate_threshold(threshold)
         self.threshold: float = threshold
-        self.max_refinements: int = max_refinements
 
     @staticmethod
     def _validate_threshold(val: float) -> None:
