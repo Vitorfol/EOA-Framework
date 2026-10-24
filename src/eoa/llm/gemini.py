@@ -6,7 +6,10 @@ using the official modern `google-genai` SDK.
 
 from __future__ import annotations
 
+import asyncio
 import os
+import random
+import time
 from typing import Any
 
 from eoa.llm.base import LLM
@@ -131,6 +134,28 @@ class GeminiProvider(LLM):
 
         return types.GenerateContentConfig(**config_args)
 
+    @staticmethod
+    def _is_transient_error(exc: Exception) -> bool:
+        """Detect transient server or rate limit errors (429, 503) for retry."""
+        if hasattr(exc, "code") and exc.code in (429, 500, 502, 503, 504):
+            return True
+        if hasattr(exc, "status_code") and exc.status_code in (
+            429,
+            500,
+            502,
+            503,
+            504,
+        ):
+            return True
+        err_str = str(exc).upper()
+        return (
+            "429" in err_str
+            or "503" in err_str
+            or "UNAVAILABLE" in err_str
+            or "RESOURCE_EXHAUSTED" in err_str
+            or "RATE LIMIT" in err_str
+        )
+
     def generate(
         self,
         prompt: str,
@@ -148,15 +173,27 @@ class GeminiProvider(LLM):
             The text completion returned by Gemini.
         """
         config = self._build_config(system_prompt, kwargs)
+        max_retries = 3
+        backoff = 2.0
 
-        response = self.client.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=config,
-            **kwargs,
-        )
+        for attempt in range(max_retries):
+            try:
+                response = self.client.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config,
+                    **kwargs,
+                )
+                return response.text or ""
+            except Exception as exc:
+                if self._is_transient_error(exc) and attempt < max_retries - 1:
+                    sleep_time = backoff + random.uniform(0.1, 0.5)
+                    time.sleep(sleep_time)
+                    backoff *= 2.0
+                    continue
+                raise
 
-        return response.text or ""
+        return ""
 
     async def agenerate(
         self,
@@ -175,12 +212,24 @@ class GeminiProvider(LLM):
             The text completion returned by Gemini.
         """
         config = self._build_config(system_prompt, kwargs)
+        max_retries = 3
+        backoff = 2.0
 
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=prompt,
-            config=config,
-            **kwargs,
-        )
+        for attempt in range(max_retries):
+            try:
+                response = await self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=prompt,
+                    config=config,
+                    **kwargs,
+                )
+                return response.text or ""
+            except Exception as exc:
+                if self._is_transient_error(exc) and attempt < max_retries - 1:
+                    sleep_time = backoff + random.uniform(0.1, 0.5)
+                    await asyncio.sleep(sleep_time)
+                    backoff *= 2.0
+                    continue
+                raise
 
-        return response.text or ""
+        return ""

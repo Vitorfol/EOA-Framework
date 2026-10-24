@@ -233,12 +233,14 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### ⚙️ ÉPICO 07: Engine de Orquestração, Grafo Leve e Fail-Safe
 > **Objetivo**: Conectar os agentes em uma máquina de estados/grafo nativo em Python, sem dependências externas, com loop de validação e degradação graciosa.
 
-- [ ] **TASK-07.1: Motor de Fluxo `OrchestratorEngine` (`src/eoa/engine/orchestrator.py`)**
-  - [ ] Implementar fluxo de execução assíncrono: CMA e AA em paralelo -> EA -> VA.
-  - [ ] Implementar loop de refinamento delimitado: se score < threshold, retroalimenta o EA com a crítica do VA até atingir o threshold ou o teto de tentativas (max_attempts, padrão 3).
-- [ ] **TASK-07.2: Desacoplamento Fail-Safe e Degradação Graciosa ("Unplugged")**
-  - [ ] Tratar exceções de rede/timeout/tokens esgotados: se o LLM ou validação falhar, o orchestrator monta uma resposta de fallback determinística com os dados brutos e flag `fallback_used = True`, sem jamais derrubar o host.
-  - [ ] Testes unitários de estresse simulando falha forçada do LLM e validação do fallback seguro.
+- [x] **TASK-07.1: Motor de Fluxo `OrchestratorEngine` (`src/eoa/engine/orchestrator.py`)**
+  - [x] Implementar fluxo de execução assíncrono e síncrono: CMA, AA e Especialistas em paralelo -> EA -> VA.
+  - [x] Suporte nativo aos 3 modos de operação (Push, Pull com hidratação por tools e Zero ML inicial) e sessões multi-turn persistentes ou stateless (`session_id` no `ExplanationResponse`).
+  - [x] Implementar loop de refinamento delimitado: se score < threshold, retroalimenta o EA com a crítica do VA até atingir o threshold ou o teto de tentativas (max_attempts, padrão 3).
+  - [x] Observabilidade estruturada com `logging.getLogger("eoa.orchestrator")` e consolidação de `AgentStepTrace`.
+- [x] **TASK-07.2: Desacoplamento Fail-Safe e Degradação Graciosa ("Unplugged")**
+  - [x] Tratar exceções de qualquer provedor LLM (Gemini, OpenAI, callables locais) ou falha de formato (`parse_error`): o orchestrator monta uma resposta de fallback determinística com os dados brutos e flag `fallback_used = True`, sem jamais derrubar o host.
+  - [x] Testes unitários e de integração (`tests/test_orchestrator.py` e `tests/test_orchestrator_live.py`) simulando falha forçada do LLM, sessão progressiva (Zero ML -> Pull -> Push) e validação do fallback seguro.
 
 ---
 

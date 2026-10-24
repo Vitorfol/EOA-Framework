@@ -395,6 +395,7 @@ class ExplanationResponse(BaseModel):
         validation_critique: Optional feedback or critique from ValidatorAgent.
         attempts_used: Total number of synthesis/refinement loops executed (>= 1).
         fallback_used: Flag indicating if emergency graceful degradation was triggered.
+        session_id: Identifier of the conversation session (explicit or generated).
         execution_trace: Step-by-step trace of all participating agents.
 
     Example:
@@ -435,6 +436,10 @@ class ExplanationResponse(BaseModel):
     fallback_used: bool = Field(
         default=False,
         description="True if narrative was generated via graceful fallback on failure.",
+    )
+    session_id: str | None = Field(
+        default=None,
+        description="Conversation session identifier (explicit or auto-generated).",
     )
     execution_trace: list[AgentStepTrace] = Field(
         default_factory=list,
