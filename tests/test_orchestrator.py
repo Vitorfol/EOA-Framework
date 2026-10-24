@@ -1,4 +1,4 @@
-"""Deterministic unit and component integration tests for OrchestratorEngine (EP07) using MockLLM.
+"""Deterministic unit and component integration tests for OrchestratorEngine (EP07).
 
 Covers:
 1. Happy Path (Push Mode, Sync & Async parity, parallel execution).
@@ -427,11 +427,13 @@ class TestRefinementLoopAndQualityGate:
         res = engine.run(user_query="Explique o alerta.")
         assert res.attempts_used == 3
         assert res.validation_passed is False
-        assert res.validation_score == 4.0  # Last score
+        assert res.validation_score == 6.5  # Aligned with delivered best narrative!
         assert res.fallback_used is True
         # Guarantees operator gets the BEST draft rather than worst regression
         assert "Rascunho 2 com nota 6.5" in res.narrative
         assert res.execution_trace[-1].status == "fallback"
+        assert res.execution_trace[-1].details["best_score"] == 6.5
+        assert res.execution_trace[-1].details["last_score"] == 4.0
 
     def test_validator_parse_error_triggers_deterministic_fallback_immediately(
         self,
