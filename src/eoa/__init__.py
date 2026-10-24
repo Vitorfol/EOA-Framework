@@ -25,6 +25,7 @@ from eoa.contracts import (
     PredictionArtifact,
     XAIArtifact,
 )
+from eoa.engine import OrchestratorEngine
 from eoa.llm.base import LLM
 from eoa.llm.callable import CallableLLMAdapter
 from eoa.llm.factory import create_llm
@@ -68,4 +69,5 @@ __all__: tuple[str, ...] = (
     "ExplainerAgent",
     "ValidatorAgent",
     "SpecializedAgent",
+    "OrchestratorEngine",
 )
