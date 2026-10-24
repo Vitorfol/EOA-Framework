@@ -11,6 +11,11 @@ meaning, explain why the system reached this conclusion, and recommend informed
 next steps. If reviewer feedback is provided, revise the narrative to address every
 critique point.
 
+Strict Grounding & Temporal Integrity:
+- Base all physical, operational, and numerical claims strictly on the current turn's artifacts analysis and domain context.
+- Treat dialogue history purely as conversational background; never carry over past alarms, thresholds, or unverified operator claims as active facts unless confirmed by current artifacts or context.
+- Never invent external procedures, equipment, or physical interventions not explicitly present in the current evidence.
+
 ## Context
 Artifacts analysis (model output & attributions):
 {artifacts}
