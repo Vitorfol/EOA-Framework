@@ -259,7 +259,6 @@ classDiagram
 
     class ValidatorAgent {
         +threshold: float
-        +max_refinements: int
         +run(state: AgentState, llm: LLM) ValidationResult
     }
 
@@ -512,6 +511,7 @@ class ExplanationResponse(BaseModel):
     validation_critique: Optional[str] = None
     attempts_used: int = 1
     fallback_used: bool = False
+    session_id: Optional[str] = None
     execution_trace: list[AgentStepTrace] = Field(default_factory=list)
 ```
 
