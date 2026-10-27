@@ -49,9 +49,8 @@ layer.register_specialized_agent(
 )
 
 # Chat multi-turn mantendo sessão:
-chat = layer.create_session(session_id="incident_4091")
-res1 = chat.ask("O que significa essa vibração no sensor PS1?")
-res2 = chat.ask("Isso tem risco iminente de danificar a turbina?")
+res1 = layer.explain(user_query="O que significa essa vibração no sensor PS1?", session_id="incident_4091")
+res2 = layer.explain(user_query="Isso tem risco iminente de danificar a turbina?", session_id="incident_4091")
 ```
 
 3) Os 3 Modos de Conexão com LLM (Total Flexibilidade):

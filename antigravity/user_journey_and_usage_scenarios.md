@@ -149,15 +149,20 @@ layer = eoa.ExplanationLayer(
     session_store=eoa.SQLiteSessionStore(db_path="meus_alertas.db"),
 )
 
-# Inicia ou retoma uma sessão com o ID do incidente
-chat = layer.create_session(session_id="incidente_turbina_04")
-
-# Turno 1
-res1 = chat.ask("O que significa essa vibração no sensor PS1?")
+# Turno 1: Passa predição e pergunta inicial vinculados à sessão do incidente
+res1 = layer.explain(
+    prediction=pred_dados,
+    xai=xai_dados,
+    user_query="O que significa essa vibração no sensor PS1?",
+    session_id="incidente_turbina_04",
+)
 print(res1.narrative)
 
-# Turno 2 (O agente lembra do contexto do turno anterior!)
-res2 = chat.ask("Isso tem risco iminente de cavitação se mantivermos a carga atual?")
+# Turno 2: Pergunta subsequente (o agente lembra do contexto e das evidências anteriores!)
+res2 = layer.explain(
+    user_query="Isso tem risco iminente de cavitação se mantivermos a carga atual?",
+    session_id="incidente_turbina_04",
+)
 print(res2.narrative)
 
 

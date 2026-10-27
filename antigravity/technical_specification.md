@@ -295,9 +295,11 @@ classDiagram
         +register_agent(agent: BaseAgent) None
         +remove_agent(name: str) None
         +get_agent(name: str) BaseAgent
-        +override_agent_prompt(name: str, prompt: str | Path) None
+        +override_agent_prompt(name: str, prompt: str | Path | None) None
+        +reset_agent_prompt(name: str) None
+        +inspect(print_output: bool) str | None
         +explain(...) ExplanationResponse
-        +create_session(session_id: str) ChatSession
+        +aexplain(...) ExplanationResponse
     }
 
     BaseAgent <|-- ContextManagerAgent
@@ -360,8 +362,8 @@ Para garantir que o desenvolvedor tenha controle total ("Developer is King"), o 
 
    # Variação B: Leitura automática do ambiente (export GEMINI_API_KEY="...")
    layer = eoa.ExplanationLayer(provider="gemini")
-   # ou instanciação zero-config direta:
-   layer = eoa.ExplanationLayer()
+   # ou instanciação zero-config direta via helper de 1 linha com agentes padrão:
+   layer = eoa.default_layer()
    ```
 
 2. **Modo 2: Cliente Pronto (Bring Your Own Client)**:
