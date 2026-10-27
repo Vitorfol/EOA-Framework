@@ -130,7 +130,7 @@ class TestDeveloperIsKing:
 
         # 3. Reset to default
         layer.reset_agent_prompt("explainer")
-        assert "Synthesize the model evidence" in ea.prompt
+        assert "Synthesize available evidence" in ea.prompt
         assert ea.prompt_source == "Built-in"
 
     def test_register_specialized_agent(self, tmp_path: Path) -> None:
