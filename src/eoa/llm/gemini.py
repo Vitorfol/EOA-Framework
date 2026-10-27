@@ -173,8 +173,8 @@ class GeminiProvider(LLM):
             The text completion returned by Gemini.
         """
         config = self._build_config(system_prompt, kwargs)
-        max_retries = 3
-        backoff = 2.0
+        max_retries = 5
+        backoff = 5.0
 
         for attempt in range(max_retries):
             try:
@@ -212,8 +212,8 @@ class GeminiProvider(LLM):
             The text completion returned by Gemini.
         """
         config = self._build_config(system_prompt, kwargs)
-        max_retries = 3
-        backoff = 2.0
+        max_retries = 5
+        backoff = 5.0
 
         for attempt in range(max_retries):
             try:
