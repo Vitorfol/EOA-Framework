@@ -64,7 +64,7 @@ class ExplainerAgent(BaseAgent):
             state.validation_critique or "None (initial explanation attempt)."
         )
 
-        return PromptManager.render(
+        rendered = PromptManager.render(
             self.prompt,
             artifacts=artifacts_text,
             domain_context=domain_text,
@@ -72,6 +72,11 @@ class ExplainerAgent(BaseAgent):
             critique=critique_text,
             user_query=state.user_query,
         )
+        if "{domain_context}" not in self.prompt and state.specialist_insights:
+            rendered = f"{rendered.rstrip()}\n\nSpecialist Insights:\n{domain_text}"
+        if "{user_query}" not in self.prompt and state.user_query:
+            rendered = f"{rendered.rstrip()}\n\nUser Question:\n{state.user_query}"
+        return rendered
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
         rendered_prompt = self._build_prompt(state)

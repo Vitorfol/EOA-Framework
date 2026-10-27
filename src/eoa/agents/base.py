@@ -173,6 +173,10 @@ class BaseAgent(ABC):
         self.name: str = name
         self.role: str | None = role
         self.prompt: str = PromptManager.resolve(agent=self.name, source=prompt)
+        self.prompt_source: str = (
+            str(prompt) if isinstance(prompt, Path)
+            else ("Inline (str)" if isinstance(prompt, str) else "Built-in")
+        )
         self.tools: list[Tool] = []
 
         if tools:
@@ -200,13 +204,20 @@ class BaseAgent(ABC):
         self.tools.append(tool)
         return tool
 
-    def set_prompt(self, source: str | Path) -> None:
+    def set_prompt(self, source: str | Path | None) -> None:
         """Update the prompt template for this agent instance.
 
         Args:
-            source: Direct prompt text (str) or Path to a local .md file.
+            source: Direct prompt text (str), Path to a local .md file, or None
+                to restore the built-in default.
         """
         self.prompt = PromptManager.resolve(agent=self.name, source=source)
+        if source is None:
+            self.prompt_source = "Built-in"
+        elif isinstance(source, Path):
+            self.prompt_source = str(source)
+        else:
+            self.prompt_source = "Inline (str)"
 
     def get_tool(self, name: str) -> Tool | None:
         """Find a registered tool by its name."""

@@ -148,6 +148,7 @@ class ValidatorAgent(BaseAgent):
             xai=xai_text,
             domain_context=domain_text,
             explanation=explanation_text,
+            user_query=state.user_query,
         )
 
     def _process_output(self, raw_output: str, state: AgentState) -> ValidationResult:
