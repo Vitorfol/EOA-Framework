@@ -26,6 +26,7 @@ from eoa.contracts import (
     XAIArtifact,
 )
 from eoa.engine import OrchestratorEngine
+from eoa.layer import ExplanationLayer, default_layer
 from eoa.llm.base import LLM
 from eoa.llm.callable import CallableLLMAdapter
 from eoa.llm.factory import create_llm
@@ -70,4 +71,6 @@ __all__: tuple[str, ...] = (
     "ValidatorAgent",
     "SpecializedAgent",
     "OrchestratorEngine",
+    "ExplanationLayer",
+    "default_layer",
 )
