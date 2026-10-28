@@ -195,8 +195,8 @@ class TestMultiTurnAndSQLite:
         assert res2.session_id == session_id
         assert res2.validation_passed is True
 
-        # Verifica persistência no SQLite
-        history = store.get_history(session_id)
+        # Verifica persistência no SQLite via store e via layer.get_history
+        history = layer.get_history(session_id)
         assert len(history) == 4  # 2 user queries + 2 assistant responses
         assert history[0].role == "user"
         assert history[1].role == "assistant"
@@ -208,6 +208,10 @@ class TestMultiTurnAndSQLite:
         assert len(logs) == 2
         assert logs[0]["score"] == 9.5
         assert logs[0]["passed"] is True
+
+        # Testa layer.clear_session
+        layer.clear_session(session_id)
+        assert len(layer.get_history(session_id)) == 0
 
 
 # =========================================================================
