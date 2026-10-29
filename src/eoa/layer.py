@@ -369,6 +369,11 @@ class ExplanationLayer:
         """
         self.session_store.clear(session_id)
         self._session_cache.pop(session_id, None)
+        if hasattr(self.session_store, "set_session_metadata"):
+            try:
+                self.session_store.set_session_metadata(session_id, {})
+            except Exception as exc:
+                logger.debug("Failed to clear session metadata: %s", exc)
 
     def _build_engine(self) -> OrchestratorEngine:
         """Assemble an OrchestratorEngine instance with current registered agents."""
@@ -429,6 +434,23 @@ class ExplanationLayer:
 
         cache = self._session_cache.setdefault(session_id, {})
 
+        # If in-memory cache is empty for this session, restore from persistent store
+        if hasattr(self.session_store, "get_session_metadata"):
+            try:
+                stored_meta = self.session_store.get_session_metadata(session_id) or {}
+                if "prediction" not in cache and "prediction" in stored_meta:
+                    cache["prediction"] = PredictionArtifact.from_input(
+                        stored_meta["prediction"]
+                    )
+                if "xai" not in cache and "xai" in stored_meta:
+                    cache["xai"] = XAIArtifact.from_input(stored_meta["xai"])
+                if "context" not in cache and "context" in stored_meta:
+                    cache["context"] = DomainContext.from_input(stored_meta["context"])
+                if "query_params" not in cache and "query_params" in stored_meta:
+                    cache["query_params"] = stored_meta["query_params"]
+            except Exception as exc:
+                logger.debug("Failed restoring session metadata: %s", exc)
+
         if prediction is not None:
             cache["prediction"] = prediction
         if xai is not None:
@@ -454,7 +476,7 @@ class ExplanationLayer:
         session_id: str | None,
         engine: OrchestratorEngine,
     ) -> None:
-        """Persist tool-hydrated artifacts back into the session cache."""
+        """Persist tool-hydrated artifacts back into session cache and store."""
         self.last_state = engine.last_state
         if not session_id or engine.last_state is None:
             return
@@ -466,6 +488,35 @@ class ExplanationLayer:
             cache["xai"] = state.xai
         if state.context is not None and not state.context.is_empty():
             cache["context"] = state.context
+
+        # Persist artifacts into persistent SessionStore (e.g. SQLite sessions table)
+        if hasattr(self.session_store, "set_session_metadata"):
+            try:
+                stored = self.session_store.get_session_metadata(session_id) or {}
+                if "prediction" in cache and cache["prediction"] is not None:
+                    p = cache["prediction"]
+                    stored["prediction"] = (
+                        p.model_dump(mode="json")
+                        if isinstance(p, PredictionArtifact)
+                        else p
+                    )
+                if "xai" in cache and cache["xai"] is not None:
+                    x = cache["xai"]
+                    stored["xai"] = (
+                        x.model_dump(mode="json") if isinstance(x, XAIArtifact) else x
+                    )
+                if "context" in cache and cache["context"] is not None:
+                    c = cache["context"]
+                    stored["context"] = (
+                        c.model_dump(mode="json")
+                        if isinstance(c, DomainContext)
+                        else c
+                    )
+                if "query_params" in cache and cache["query_params"] is not None:
+                    stored["query_params"] = cache["query_params"]
+                self.session_store.set_session_metadata(session_id, stored)
+            except Exception as exc:
+                logger.debug("Failed saving session metadata: %s", exc)
 
     def _record_validation_if_sqlite(
         self,

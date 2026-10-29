@@ -355,3 +355,49 @@ class TestAutonomousAndZeroML:
         )
         assert tools_called == []
         assert len(layer.get_history("sess_prog")) == 6
+
+    def test_cross_instance_sqlite_context_persistence(
+        self, tmp_path: Path
+    ) -> None:
+        db_file = tmp_path / "persistent_context.db"
+        session_id = "sess_reboot_01"
+
+        # Instance 1: Turn 1 provides prediction, XAI and context
+        store1 = SQLiteSessionStore(db_file)
+        layer1 = ExplanationLayer.default_layer(
+            llm=_make_smart_mock_llm(),
+            session_store=store1,
+        )
+        layer1.explain(
+            prediction={
+                "target_variable": "Pump",
+                "predicted_value": "Failure",
+                "confidence_or_probability": 0.95,
+            },
+            xai={"feature_attributions": {"PS1": 0.75}},
+            context={"variables": {"PS1": "Inlet pressure"}},
+            user_query="Analyze failure",
+            session_id=session_id,
+        )
+
+        # Instance 2: Simulate application reboot by creating a fresh ExplanationLayer
+        # pointing to the same SQLite DB file without in-memory cache!
+        store2 = SQLiteSessionStore(db_file)
+        layer2 = ExplanationLayer.default_layer(
+            llm=_make_smart_mock_llm(),
+            session_store=store2,
+        )
+        assert session_id not in layer2._session_cache
+
+        # Turn 2: Only pass user_query and session_id ->
+        # Ground truth prediction and context restored directly from SQLite!
+        res2 = layer2.explain(
+            user_query="Why is PS1 relevant?",
+            session_id=session_id,
+        )
+        assert res2.validation_passed is True
+        assert layer2.last_state is not None
+        assert layer2.last_state.prediction is not None
+        assert layer2.last_state.prediction.target_variable == "Pump"
+        assert layer2.last_state.context is not None
+        assert "PS1" in layer2.last_state.context.variables

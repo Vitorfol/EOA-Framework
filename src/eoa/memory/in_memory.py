@@ -32,6 +32,7 @@ class InMemorySessionStore(SessionStore):
         """Initialize an empty in-memory session store."""
         self._lock = threading.RLock()
         self._sessions: dict[str, list[ChatMessage]] = {}
+        self._metadata: dict[str, dict[str, Any]] = {}
 
     def get_history(self, session_id: str) -> list[ChatMessage]:
         """Retrieve recorded messages for a session in chronological order.
@@ -85,6 +86,29 @@ class InMemorySessionStore(SessionStore):
         """
         with self._lock:
             self._sessions.pop(session_id, None)
+            self._metadata.pop(session_id, None)
+
+    def get_session_metadata(self, session_id: str) -> dict[str, Any]:
+        """Retrieve stored session metadata dictionary.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+
+        Returns:
+            Session metadata dictionary (or empty dict if unset).
+        """
+        with self._lock:
+            return dict(self._metadata.get(session_id, {}))
+
+    def set_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> None:
+        """Store or update session metadata dictionary in memory.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+            metadata: Metadata dictionary to persist for the session.
+        """
+        with self._lock:
+            self._metadata[session_id] = dict(metadata)
 
     async def aget_history(self, session_id: str) -> list[ChatMessage]:
         """Asynchronously retrieve all messages for a given session.

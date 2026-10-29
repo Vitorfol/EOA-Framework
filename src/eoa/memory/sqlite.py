@@ -266,6 +266,57 @@ class SQLiteSessionStore(SessionStore):
         finally:
             self._close_conn(conn)
 
+    def get_session_metadata(self, session_id: str) -> dict[str, Any]:
+        """Retrieve stored session metadata dictionary.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+
+        Returns:
+            Session metadata dictionary (or empty dict if unset).
+        """
+        conn = self._connect()
+        try:
+            with self._lock:
+                cursor = conn.execute(
+                    "SELECT metadata FROM sessions WHERE id = ?", (session_id,)
+                )
+                row = cursor.fetchone()
+                if row and row["metadata"]:
+                    try:
+                        return json.loads(row["metadata"])
+                    except (json.JSONDecodeError, TypeError):
+                        return {}
+                return {}
+        finally:
+            self._close_conn(conn)
+
+    def set_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> None:
+        """Store or update session metadata dictionary in SQLite.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+            metadata: Metadata dictionary to persist for the session.
+        """
+        now_iso = datetime.now(UTC).isoformat()
+        metadata_json = json.dumps(metadata or {}, ensure_ascii=False)
+        conn = self._connect()
+        try:
+            with self._lock:
+                with conn:
+                    conn.execute(
+                        """
+                        INSERT INTO sessions (id, created_at, updated_at, metadata)
+                        VALUES (?, ?, ?, ?)
+                        ON CONFLICT(id) DO UPDATE SET
+                            updated_at = excluded.updated_at,
+                            metadata = excluded.metadata
+                        """,
+                        (session_id, now_iso, now_iso, metadata_json),
+                    )
+        finally:
+            self._close_conn(conn)
+
     async def aget_history(self, session_id: str) -> list[ChatMessage]:
         """Asynchronously retrieve all messages for a given session.
 

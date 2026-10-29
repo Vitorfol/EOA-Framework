@@ -367,3 +367,32 @@ class TestSQLiteSessionStore:
         assert history[3].role == ROLE_ASSISTANT
         assert history[3].content == ans2
         assert history[3].metadata["turn"] == 2
+
+    def test_session_metadata_persistence(self, tmp_path: Path) -> None:
+        db_file = tmp_path / "metadata_test.db"
+        store = SQLiteSessionStore(db_file)
+        session_id = "sess_meta_01"
+
+        assert store.get_session_metadata(session_id) == {}
+
+        store.set_session_metadata(
+            session_id, {"system": "Turbine", "threshold": 4.5}
+        )
+        assert store.get_session_metadata(session_id) == {
+            "system": "Turbine",
+            "threshold": 4.5,
+        }
+
+        # Reopen from disk to verify true SQLite persistence
+        reopened = SQLiteSessionStore(db_file)
+        assert reopened.get_session_metadata(session_id) == {
+            "system": "Turbine",
+            "threshold": 4.5,
+        }
+
+        # In-memory session store test
+        mem_store = InMemorySessionStore()
+        mem_store.set_session_metadata("mem_1", {"flag": True})
+        assert mem_store.get_session_metadata("mem_1") == {"flag": True}
+        mem_store.delete_session("mem_1")
+        assert mem_store.get_session_metadata("mem_1") == {}
