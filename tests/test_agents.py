@@ -415,6 +415,79 @@ class TestSpecializedAgent:
             {"turbine": "T-101", "bearing_temp_c": 94.5}
         ]
 
+    def test_specialized_agent_autonomous_tool_reasoning_and_skip(self) -> None:
+        calls_made: list[tuple[int, int]] = []
+
+        def soma_fake(a: int, b: int) -> int:
+            """Multiplica os fatores simulando uma soma fake customizada."""
+            calls_made.append((a, b))
+            return a * b
+
+        sa = SpecializedAgent(
+            name="math",
+            prompt="Resultado da tool: {tool_outputs} | Dúvida: {user_query}",
+            tools=[soma_fake],
+        )
+
+        # Tool schema introspection check
+        tool_obj = sa.get_tool("soma_fake")
+        assert tool_obj is not None
+        assert tool_obj.parameters_schema["properties"]["a"]["type"] == "integer"
+        assert tool_obj.parameters_schema["required"] == ["a", "b"]
+
+        def reasoning_responder(prompt: str, system_prompt: str | None = None) -> str:
+            if "tool-dispatch reasoning module" in prompt.lower():
+                if "2 e 3" in prompt:
+                    return (
+                        '{"tool_calls": ['
+                        '{"name": "soma_fake", "arguments": {"a": "2", "b": 3}}'
+                        "]}"
+                    )
+                return '{"tool_calls": []}'
+            return f"Parecer do especialista sobre: {prompt}"
+
+        llm = MockLLM(custom_generator=reasoning_responder)
+
+        # Case 1: User asks for calculation in natural language without query_params
+        state_calc = AgentState(
+            user_query="Apresente o resultado da soma fake para 2 e 3."
+        )
+        res_calc = sa.run(state_calc, llm)
+        assert calls_made == [(2, 3)]
+        assert res_calc.metadata["tool_outputs"] == [6]
+        assert "Resultado da tool: 6" in res_calc.output
+
+        # Case 2: Unrelated conceptual question -> agent decides NOT to call tool
+        calls_made.clear()
+        state_unrelated = AgentState(user_query="O que é um motor elétrico?")
+        res_unrelated = sa.run(state_unrelated, llm)
+        assert calls_made == []
+        assert "tool_outputs" not in res_unrelated.metadata
+        assert "no tools triggered" in res_unrelated.trace.summary
+
+    def test_explainer_and_validator_support_tools(self) -> None:
+        def format_tag(unit_id: str) -> str:
+            return f"[UNIT:{unit_id}]"
+
+        ea = ExplainerAgent(tools=[format_tag])
+        va = ValidatorAgent(tools=[format_tag])
+
+        llm_ea = MockLLM(default_response="Narrative with unit tag.")
+        state = AgentState(
+            user_query="Status",
+            query_params={"unit_id": "U-09"},
+        )
+        res_ea = ea.run(state, llm_ea)
+        assert res_ea.metadata["tool_outputs"] == ["[UNIT:U-09]"]
+        assert "[UNIT:U-09]" in llm_ea.last_prompt
+
+        llm_va = MockLLM(
+            default_response='{"score": 9.2, "issues": [], "critique": ""}'
+        )
+        res_va = va.run(state, llm_va)
+        assert res_va.metadata["tool_outputs"] == ["[UNIT:U-09]"]
+        assert "[UNIT:U-09]" in llm_va.last_prompt
+
     def test_specialized_agent_requires_explicit_prompt(self) -> None:
         with pytest.raises(ValueError, match="requires an explicit prompt"):
             SpecializedAgent(name="custom", prompt="")  # type: ignore[arg-type]

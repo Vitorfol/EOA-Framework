@@ -23,7 +23,6 @@ from eoa import (
     ExplanationResponse,
     SpecializedAgent,
     SQLiteSessionStore,
-    default_layer,
 )
 from tests.mocks.mock_llm import MockLLM
 
@@ -54,7 +53,7 @@ def _make_smart_mock_llm() -> MockLLM:
 class TestPlugAndPlayAndModes:
     def test_scenario_1_plug_and_play(self) -> None:
         mock_llm = _make_smart_mock_llm()
-        layer = default_layer(llm=mock_llm)
+        layer = ExplanationLayer.default_layer(llm=mock_llm)
 
         res = layer.explain(
             prediction={
@@ -79,14 +78,14 @@ class TestPlugAndPlayAndModes:
                 return '{"score": 8.8, "issues": [], "critique": ""}'
             return "Local AI model response."
 
-        layer = default_layer(llm=my_local_model)
+        layer = ExplanationLayer.default_layer(llm=my_local_model)
         res = layer.explain(user_query="Hello system")
         assert "local ai model" in res.narrative.lower()
 
     @pytest.mark.asyncio
     async def test_async_aexplain_parity(self) -> None:
         mock_llm = _make_smart_mock_llm()
-        layer = default_layer(llm=mock_llm)
+        layer = ExplanationLayer.default_layer(llm=mock_llm)
 
         res = await layer.aexplain(
             prediction={"target_variable": "Pump", "predicted_value": "Degraded"},
@@ -102,6 +101,9 @@ class TestPlugAndPlayAndModes:
 class TestDeveloperIsKing:
     def test_remove_and_get_agent(self) -> None:
         layer = ExplanationLayer(llm=_make_smart_mock_llm())
+        with pytest.raises(KeyError, match="create_default_agents"):
+            layer.get_agent("context_manager")
+
         layer.create_default_agents()
 
         # Check initial agents
@@ -113,8 +115,12 @@ class TestDeveloperIsKing:
         with pytest.raises(KeyError, match="not found"):
             layer.get_agent("context_manager")
 
+        # Also verify ExplanationLayer.default_layer() classmethod
+        ready_layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
+        assert ready_layer.get_agent("explainer") is not None
+
     def test_override_prompt_with_str_and_path(self, tmp_path: Path) -> None:
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
 
         # 1. Override with str
         custom_p = "You are an industrial engineer: {user_query}"
@@ -134,7 +140,7 @@ class TestDeveloperIsKing:
         assert ea.prompt_source == "Built-in"
 
     def test_register_specialized_agent(self, tmp_path: Path) -> None:
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
         spec_md = tmp_path / "turbine.md"
         spec_md.write_text("Cavitation specialist: {user_query}", encoding="utf-8")
 
@@ -148,7 +154,7 @@ class TestDeveloperIsKing:
         assert res.validation_passed is True
 
     def test_inspect_output_formatting(self) -> None:
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
         layer.override_agent_prompt("explainer", "Custom inline")
 
         output = layer.inspect(print_output=False)
@@ -168,7 +174,7 @@ class TestMultiTurnAndSQLite:
         store = SQLiteSessionStore(db_path=db_file)
 
         mock_llm = _make_smart_mock_llm()
-        layer = default_layer(llm=mock_llm, session_store=store)
+        layer = ExplanationLayer.default_layer(llm=mock_llm, session_store=store)
 
         session_id = "incidente_turbina_901"
 
@@ -219,7 +225,7 @@ class TestMultiTurnAndSQLite:
 # =========================================================================
 class TestPluggableRAG:
     def test_cma_custom_retriever_via_layer(self) -> None:
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
         cma = layer.get_agent("context_manager")
 
         # Custom vector search simulation (e.g., FAISS or LlamaIndex)
@@ -240,7 +246,7 @@ class TestFailSafeMode:
         def crashing_llm(prompt: str) -> str:
             raise ConnectionError("503 Server Unavailable / Network down")
 
-        layer = default_layer(llm=crashing_llm)
+        layer = ExplanationLayer.default_layer(llm=crashing_llm)
         res = layer.explain(
             prediction={"target_variable": "Motor", "predicted_value": "Critical"},
             user_query="Status check",
@@ -268,7 +274,7 @@ class TestAutonomousAndZeroML:
                 "xai": {"feature_attributions": {"PS1": 0.60}},
             }
 
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
         aa = layer.get_agent("artifacts")
         aa.register_tool(fetch_incident_ml)
 
@@ -279,7 +285,7 @@ class TestAutonomousAndZeroML:
         assert res.validation_passed is True
 
     def test_scenario_8_zero_ml_mode(self) -> None:
-        layer = default_layer(llm=_make_smart_mock_llm())
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
         doc_rule = "Bypass line if pressure drops below 2.0 bar."
         res = layer.explain(
             context={"documents": {"rule_1": doc_rule}},

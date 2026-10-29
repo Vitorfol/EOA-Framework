@@ -17,7 +17,6 @@ from eoa import (
     ExplanationResponse,
     SpecializedAgent,
     SQLiteSessionStore,
-    default_layer,
 )
 
 pytestmark = [
@@ -31,8 +30,8 @@ pytestmark = [
 
 class TestLiveExplanationLayer:
     def test_live_default_layer_plug_and_play(self) -> None:
-        """Validate 1-line `default_layer()` with real Gemini API (Zero-Config)."""
-        layer = default_layer()
+        """Validate 1-line `ExplanationLayer.default_layer()` with real Gemini API."""
+        layer = ExplanationLayer.default_layer()
 
         response = layer.explain(
             prediction={
