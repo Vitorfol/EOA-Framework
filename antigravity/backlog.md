@@ -257,14 +257,11 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 - [x] **TASK-08.2: Polimento da API Pública e Documentação da DX**
   - [x] Métodos de conveniência na camada (`layer.inspect()`, `layer.reset_agent_prompt(...)`, `layer.get_history(...)`, `layer.clear_session(...)`).
   - [x] Guia completo de referência da API pública em `examples/README.md`.
-  - [ ] *Roadmap v0.2.0 (Evoluções Futuras Mapeadas):*
-    - *Edição e Customização Controlada do Grafo/Fluxo de Execução (encadeamento customizado entre agentes especialistas, hooks condicionais e potencial Agente Roteador/Dispatcher Central para ativar seletivamente agentes e tools).*
-    - *CLI externa (`eoa`) postergada para lançamento futuro visando manter a v0.1.0 estritamente focada na experiência de biblioteca Python.*
 
 ---
 
-### 🔬 ÉPICO 09: Casos de Uso Reais, Validação Empírica & Preparação para o ICSE
-> **Objetivo**: Construir os experimentos e evidências científicas de software engineering exigidos pelo ICSE.
+### 🔬 ÉPICO 09: Casos de Uso Reais, Validação Empírica & Preparação para o Artigo
+> **Objetivo**: Construir os experimentos e evidências científicas de engenharia de software exigidos para o artigo (JSS / ICSE) e registro de software.
 
 - [ ] **TASK-09.1: Reprodução do Caso Hidráulico do SBES como Exemplo Oficial**
   - [ ] Criar pasta `examples/predictive_maintenance/` reproduzindo os dados do dataset hidráulico da UCI (cenário da hidrelétrica do paper).
@@ -273,4 +270,17 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 - [ ] **TASK-09.3: Instrumentação de Benchmarks de Engenharia de Software**
   - [ ] Medir overhead computacional da engine (latência em ms do framework excluindo a chamada do LLM).
   - [ ] Medir eficácia do loop do ValidatorAgent (taxa de alucinações corrigidas vs. tentativas).
-  - [ ] Coleta de dados para a seção de avaliação empírica do paper do ICSE.
+  - [ ] Coleta de dados para a seção de avaliação empírica do artigo.
+
+---
+
+## 🚀 3. Roadmap Pós-v0.1.0 (Evoluções Futuras Mapeadas para v0.2.0)
+
+Itens deliberadamente fora do escopo da `v0.1.0` para manter o core enxuto, estável e focado na validação científica e registro de software:
+
+- [ ] **Edição e Customização Controlada do Grafo de Execução (Custom DAG)**:
+  - Permitir que o desenvolvedor altere a topologia de execução entre agentes (encadeamento sequencial entre especialistas, hooks condicionais e grafos customizados).
+- [ ] **Agente Roteador / Dispatcher Central Opcional**:
+  - Opção de configurar um agente planejador inicial para selecionar seletivamente quais especialistas e ferramentas ativar em sistemas com dezenas de agentes.
+- [ ] **CLI Externa de Linha de Comando (`eoa`)**:
+  - Ferramenta de terminal (`eoa inspect`, `eoa init`) postergada para manter a `v0.1.0` focada 100% na experiência programática em Python (`layer.inspect()`).

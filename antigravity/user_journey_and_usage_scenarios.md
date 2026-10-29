@@ -35,12 +35,12 @@ layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="AIzaSy...
 # 2. Pede a explicação passando os dados brutos da predição
 response = layer.explain(
     prediction={
-        "target": "Condição do Resfriador",
-        "status": "Eficiência Reduzida (20%)",
-        "probabilidade": 0.82
+        "target_variable": "Condição do Resfriador",
+        "predicted_value": "Eficiência Reduzida (20%)",
+        "confidence_or_probability": 0.82
     },
     xai={
-        "top_features": {"PS1_pressao": 0.45, "EPS1_potencia_motor": 0.35, "TS2_temperatura": 0.20}
+        "feature_attributions": {"PS1_pressao": 0.45, "EPS1_potencia_motor": 0.35, "TS2_temperatura": 0.20}
     },
     user_query="Explique por que esse alerta disparou e o que devo verificar."
 )
