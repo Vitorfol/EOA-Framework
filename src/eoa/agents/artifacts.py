@@ -37,27 +37,23 @@ class ArtifactsAgent(BaseAgent):
             tools=tools,
         )
 
-    def _hydrate_artifacts_from_tools_sync(self, state: AgentState) -> None:
-        """Hydrate prediction and xai from tools if missing and query_params exist."""
-        if state.prediction is not None:
+    def _hydrate_artifacts_from_tools_sync(self, state: AgentState, llm: LLM) -> None:
+        """Hydrate prediction and xai from tools if missing."""
+        if state.prediction is not None or not self.tools:
             return
 
-        if not state.query_params or not self.tools:
-            return
-
-        results = self._execute_matching_tools_sync(state.query_params)
+        results = self._resolve_and_execute_tools_sync(state, llm)
         for res in results:
             self._apply_tool_result(state, res)
 
-    async def _hydrate_artifacts_from_tools_async(self, state: AgentState) -> None:
+    async def _hydrate_artifacts_from_tools_async(
+        self, state: AgentState, llm: LLM
+    ) -> None:
         """Asynchronously hydrate prediction and xai from tools if missing."""
-        if state.prediction is not None:
+        if state.prediction is not None or not self.tools:
             return
 
-        if not state.query_params or not self.tools:
-            return
-
-        results = await self._execute_matching_tools_async(state.query_params)
+        results = await self._resolve_and_execute_tools_async(state, llm)
         for res in results:
             self._apply_tool_result(state, res)
 
@@ -141,7 +137,7 @@ class ArtifactsAgent(BaseAgent):
         )
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        self._hydrate_artifacts_from_tools_sync(state)
+        self._hydrate_artifacts_from_tools_sync(state, llm)
 
         # Zero ML / Progressive Ramp optimization: save tokens if no prediction exists
         if state.prediction is None:
@@ -172,7 +168,7 @@ class ArtifactsAgent(BaseAgent):
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
-        await self._hydrate_artifacts_from_tools_async(state)
+        await self._hydrate_artifacts_from_tools_async(state, llm)
 
         # Zero ML / Progressive Ramp optimization
         if state.prediction is None:

@@ -74,13 +74,25 @@ class SpecializedAgent(BaseAgent):
             rendered = f"{rendered}\n\nTool Outputs:\n{tools_text}"
         return rendered
 
-    def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        tool_outputs: list[Any] = []
-        if state.query_params and self.tools:
-            tool_outputs = self._execute_matching_tools_sync(state.query_params)
+    def _format_trace_summary(self, tool_outputs: list[Any]) -> str:
+        if not self.tools:
+            return f"Specialist '{self.name}' evaluated domain factors."
+        if tool_outputs:
+            return (
+                f"Specialist '{self.name}' evaluated domain factors "
+                f"(tools executed: {tool_outputs})."
+            )
+        return (
+            f"Specialist '{self.name}' evaluated domain factors "
+            "(no tools triggered)."
+        )
 
-        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
-        output = llm.generate(rendered_prompt)
+    def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
+        output, tool_outputs = self._run_with_tools_sync(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.specialist_insights[self.name] = output
 
         return AgentResult(
@@ -89,18 +101,17 @@ class SpecializedAgent(BaseAgent):
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
-                summary=f"Specialist '{self.name}' evaluated domain factors.",
+                summary=self._format_trace_summary(tool_outputs),
                 status="success",
             ),
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
-        tool_outputs: list[Any] = []
-        if state.query_params and self.tools:
-            tool_outputs = await self._execute_matching_tools_async(state.query_params)
-
-        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
-        output = await llm.agenerate(rendered_prompt)
+        output, tool_outputs = await self._run_with_tools_async(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.specialist_insights[self.name] = output
 
         return AgentResult(
@@ -109,7 +120,7 @@ class SpecializedAgent(BaseAgent):
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
-                summary=f"Specialist '{self.name}' evaluated domain factors.",
+                summary=self._format_trace_summary(tool_outputs),
                 status="success",
             ),
         )

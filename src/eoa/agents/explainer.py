@@ -54,7 +54,11 @@ class ExplainerAgent(BaseAgent):
 
         return "\n\n".join(parts)
 
-    def _build_prompt(self, state: AgentState) -> str:
+    def _build_prompt(
+        self,
+        state: AgentState,
+        tool_outputs: list[Any] | None = None,
+    ) -> str:
         artifacts_text = (
             state.artifacts_summary or "No predictive artifacts analysis available."
         )
@@ -62,6 +66,11 @@ class ExplainerAgent(BaseAgent):
         history_text = self._format_history(state.history)
         critique_text = (
             state.validation_critique or "None (initial explanation attempt)."
+        )
+        tools_text = (
+            "\n".join(str(item) for item in tool_outputs)
+            if tool_outputs
+            else "Not provided"
         )
 
         rendered = PromptManager.render(
@@ -71,7 +80,10 @@ class ExplainerAgent(BaseAgent):
             history=history_text,
             critique=critique_text,
             user_query=state.user_query,
+            tool_outputs=tools_text,
         )
+        if tool_outputs and "{tool_outputs}" not in self.prompt:
+            rendered = f"{rendered.rstrip()}\n\nTool Outputs:\n{tools_text}"
         if "{domain_context}" not in self.prompt and state.specialist_insights:
             rendered = f"{rendered.rstrip()}\n\nSpecialist Insights:\n{domain_text}"
         if "{user_query}" not in self.prompt and state.user_query:
@@ -79,12 +91,16 @@ class ExplainerAgent(BaseAgent):
         return rendered
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        rendered_prompt = self._build_prompt(state)
-        output = llm.generate(rendered_prompt)
+        output, tool_outputs = self._run_with_tools_sync(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.draft_explanation = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
@@ -94,12 +110,16 @@ class ExplainerAgent(BaseAgent):
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
-        rendered_prompt = self._build_prompt(state)
-        output = await llm.agenerate(rendered_prompt)
+        output, tool_outputs = await self._run_with_tools_async(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.draft_explanation = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
