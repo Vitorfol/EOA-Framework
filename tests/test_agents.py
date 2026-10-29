@@ -70,6 +70,45 @@ class TestTool:
         with pytest.raises(TypeError, match="must be callable"):
             Tool("not_a_callable")  # type: ignore[arg-type]
 
+    def test_tool_schema_introspection_and_descriptor(self) -> None:
+        def compute_metrics(
+            sensor_id: str,
+            threshold: float = 4.0,
+            retries: int = 3,
+        ) -> dict:
+            """Compute equipment sensor metrics."""
+            return {
+                "sensor": sensor_id,
+                "passed": threshold > 0,
+                "retries": retries,
+            }
+
+        tool = Tool(compute_metrics)
+        schema = tool.parameters_schema
+        assert schema["type"] == "object"
+        assert schema["required"] == ["sensor_id"]
+        assert schema["properties"]["sensor_id"]["type"] == "string"
+        assert schema["properties"]["threshold"]["type"] == "number"
+        assert schema["properties"]["threshold"]["default"] == 4.0
+        assert schema["properties"]["retries"]["type"] == "integer"
+        assert schema["properties"]["retries"]["default"] == 3
+
+        desc = tool.to_descriptor()
+        assert desc["name"] == "compute_metrics"
+        assert desc["description"] == "Compute equipment sensor metrics."
+        assert desc["parameters"] == schema
+
+    def test_tool_type_coercion_on_execution(self) -> None:
+        def multiply(a: int, b: float, tag: str) -> dict:
+            return {"result": a * b, "tag": tag}
+
+        tool = Tool(multiply)
+        # Pass string-encoded arguments coming from LLM JSON extraction
+        res = tool.execute(a="10", b="2.5", tag=123)
+        assert res == {"result": 25.0, "tag": "123"}
+        assert isinstance(res["result"], float)
+        assert isinstance(res["tag"], str)
+
 
 # =========================================================================
 # 2. Tests for ContextManagerAgent (CMA) and ContextRetriever
@@ -436,14 +475,15 @@ class TestSpecializedAgent:
         assert tool_obj.parameters_schema["required"] == ["a", "b"]
 
         def reasoning_responder(prompt: str, system_prompt: str | None = None) -> str:
-            if "tool-dispatch reasoning module" in prompt.lower():
+            if "## Tool-Dispatch Reasoning Instructions" in prompt:
                 if "2 e 3" in prompt:
                     return (
                         '{"tool_calls": ['
                         '{"name": "soma_fake", "arguments": {"a": "2", "b": 3}}'
                         "]}"
                     )
-                return '{"tool_calls": []}'
+                # Single-pass: when no tool is needed, reply directly in 1 call!
+                return "Um motor elétrico converte energia elétrica em mecânica."
             return f"Parecer do especialista sobre: {prompt}"
 
         llm = MockLLM(custom_generator=reasoning_responder)
@@ -456,14 +496,17 @@ class TestSpecializedAgent:
         assert calls_made == [(2, 3)]
         assert res_calc.metadata["tool_outputs"] == [6]
         assert "Resultado da tool: 6" in res_calc.output
+        assert llm.call_count == 2  # 1st call: tool_calls JSON -> 2nd call: synthesis
 
-        # Case 2: Unrelated conceptual question -> agent decides NOT to call tool
+        # Case 2: Unrelated conceptual question -> skips tool in 1 single LLM call!
         calls_made.clear()
         state_unrelated = AgentState(user_query="O que é um motor elétrico?")
         res_unrelated = sa.run(state_unrelated, llm)
         assert calls_made == []
         assert "tool_outputs" not in res_unrelated.metadata
         assert "no tools triggered" in res_unrelated.trace.summary
+        assert "converte energia elétrica" in res_unrelated.output
+        assert llm.call_count == 3  # Only +1 call (Single-Pass: 0 wasted calls!)
 
     def test_explainer_and_validator_support_tools(self) -> None:
         def format_tag(unit_id: str) -> str:
@@ -487,6 +530,27 @@ class TestSpecializedAgent:
         res_va = va.run(state, llm_va)
         assert res_va.metadata["tool_outputs"] == ["[UNIT:U-09]"]
         assert "[UNIT:U-09]" in llm_va.last_prompt
+
+    def test_base_agent_empty_tool_calls_fallback(self) -> None:
+        def dummy_tool(x: int) -> int:
+            return x * 2
+
+        ea = ExplainerAgent(tools=[dummy_tool])
+
+        def responder_with_explicit_empty_json(
+            prompt: str, system_prompt: str | None = None
+        ) -> str:
+            if "## Tool-Dispatch Reasoning Instructions" in prompt:
+                # LLM returns an empty JSON tool_calls block
+                return '{"tool_calls": []}'
+            return "Fallback normal narrative text."
+
+        llm = MockLLM(custom_generator=responder_with_explicit_empty_json)
+        state = AgentState(user_query="How does the system work?")
+
+        res = ea.run(state, llm)
+        assert res.output == "Fallback normal narrative text."
+        assert "tool_outputs" not in res.metadata
 
     def test_specialized_agent_requires_explicit_prompt(self) -> None:
         with pytest.raises(ValueError, match="requires an explicit prompt"):
