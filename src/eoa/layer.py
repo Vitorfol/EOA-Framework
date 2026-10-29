@@ -3,7 +3,7 @@
 Provides the primary interface for developers to interact with the multi-agent
 explanation system ("Developer Experience First" & "Developer is King"):
 - `ExplanationLayer`: Orchestrator and agent lifecycle façade.
-- `default_layer`: 1-line zero-config factory function.
+- `ExplanationLayer.default_layer`: 1-line zero-config factory classmethod.
 """
 
 from __future__ import annotations
@@ -54,7 +54,7 @@ class ExplanationLayer:
             Defaults to 3.
         auto_create_agents: Whether to automatically instantiate default canonical
             agents (CMA, AA, EA, VA). Defaults to False when instantiating
-            `ExplanationLayer` directly, and True when using `eoa.default_layer(...)`.
+            `ExplanationLayer` directly, and True via `ExplanationLayer.default_layer`.
         **llm_kwargs: Additional parameters forwarded to the LLM constructor or client.
 
     Example:
@@ -103,6 +103,54 @@ class ExplanationLayer:
 
         if auto_create_agents:
             self.create_default_agents()
+
+    @classmethod
+    def default_layer(
+        cls,
+        llm: LLM | Callable[..., Any] | Any | None = None,
+        *,
+        provider: str | None = None,
+        api_key: str | None = None,
+        model: str | None = None,
+        session_store: SessionStore | None = None,
+        threshold: float = 7.0,
+        max_attempts: int = 3,
+        **llm_kwargs: Any,
+    ) -> ExplanationLayer:
+        """One-line factory method to initialize a ready-to-use ExplanationLayer.
+
+        Instantiates the layer and immediately configures the four canonical agents
+        (CMA, AA, EA, VA).
+
+        Args:
+            llm: LLM instance, callable function, or third-party client.
+            provider: Provider identifier string (e.g. 'gemini').
+            api_key: API key string (if not using environment variables).
+            model: Model identifier (defaults to 'gemini-3.5-flash-lite').
+            session_store: Storage backend for multi-turn sessions (default: InMemory).
+            threshold: Acceptance threshold for ValidatorAgent (default: 7.0).
+            max_attempts: Maximum refinement attempts on failure (default: 3).
+            **llm_kwargs: Additional parameters forwarded to LLM creation.
+
+        Returns:
+            An initialized `ExplanationLayer` with all 4 canonical agents active.
+
+        Example:
+            >>> from eoa import ExplanationLayer
+            >>> layer = ExplanationLayer.default_layer(model="gemini-3.6-flash")
+        """
+        layer = cls(
+            llm=llm,
+            provider=provider,
+            api_key=api_key,
+            model=model,
+            session_store=session_store,
+            max_attempts=max_attempts,
+            auto_create_agents=False,
+            **llm_kwargs,
+        )
+        layer.create_default_agents(threshold=threshold)
+        return layer
 
     def create_default_agents(self, threshold: float = 7.0) -> ExplanationLayer:
         """Instantiate and register the four core canonical agents (CMA, AA, EA, VA).
@@ -192,11 +240,18 @@ class ExplanationLayer:
         """
         normalized_name = name.strip()
         if normalized_name not in self._agents:
-            registered = list(self._agents.keys())
-            msg = (
-                f"Agent '{normalized_name}' not found. "
-                f"Registered agents: {registered}"
-            )
+            if not self._agents:
+                msg = (
+                    f"Agent '{normalized_name}' not found (no agents initialized yet). "
+                    "Call 'layer.create_default_agents()' first or use "
+                    "'ExplanationLayer.default_layer()'."
+                )
+            else:
+                registered = list(self._agents.keys())
+                msg = (
+                    f"Agent '{normalized_name}' not found. "
+                    f"Registered agents: {registered}"
+                )
             raise KeyError(msg)
         return self._agents[normalized_name]
 
@@ -533,58 +588,3 @@ class ExplanationLayer:
             self._record_validation_if_sqlite(response.session_id, response)
 
         return response
-
-
-def default_layer(
-    llm: LLM | Callable[..., Any] | Any | None = None,
-    *,
-    provider: str | None = None,
-    api_key: str | None = None,
-    model: str | None = None,
-    session_store: SessionStore | None = None,
-    threshold: float = 7.0,
-    max_attempts: int = 3,
-    **llm_kwargs: Any,
-) -> ExplanationLayer:
-    """One-line factory function to initialize a ready-to-use ExplanationLayer.
-
-    Instantiates the layer and immediately configures the four canonical agents
-    (CMA, AA, EA, VA). Fully supports all 3 LLM connection modes:
-    - Mode 1: Provider and credentials (`provider="gemini"`, `api_key="..."`).
-    - Mode 2: Pre-instantiated Client (`llm=my_client`).
-    - Mode 3: Custom callable function (`llm=my_local_llm_function`).
-
-    Args:
-        llm: LLM instance, callable function, or third-party client.
-        provider: Provider identifier string (e.g. 'gemini').
-        api_key: API key string (if not using environment variables).
-        model: Model identifier (defaults to 'gemini-3.5-flash-lite').
-        session_store: Storage backend for multi-turn sessions (defaults to InMemory).
-        threshold: Acceptance threshold for ValidatorAgent (default: 7.0).
-        max_attempts: Maximum refinement attempts on failure (default: 3).
-        **llm_kwargs: Additional parameters forwarded to LLM creation.
-
-    Returns:
-        An initialized `ExplanationLayer` ready to call `.explain()`.
-
-    Examples:
-        >>> import eoa
-        >>> # Zero-config (reads GEMINI_API_KEY from environment):
-        >>> layer = eoa.default_layer()
-        >>> response = layer.explain(prediction={...}, user_query="Explain")
-
-        >>> # With custom local callable:
-        >>> layer = eoa.default_layer(llm=lambda prompt: "Local model analysis")
-    """
-    layer = ExplanationLayer(
-        llm=llm,
-        provider=provider,
-        api_key=api_key,
-        model=model,
-        session_store=session_store,
-        max_attempts=max_attempts,
-        auto_create_agents=False,
-        **llm_kwargs,
-    )
-    layer.create_default_agents(threshold=threshold)
-    return layer
