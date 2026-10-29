@@ -94,6 +94,7 @@ class OrchestratorEngine:
         )
         self.session_store: SessionStore | None = session_store
         self.max_attempts: int = max_attempts
+        self.last_state: AgentState | None = None
 
     @staticmethod
     def _normalize_inputs(
@@ -290,6 +291,7 @@ class OrchestratorEngine:
             incident_id=incident_id,
             history=history,
         )
+        self.last_state = state
 
         traces: list[AgentStepTrace] = []
         attempts_used = 1
@@ -608,6 +610,7 @@ class OrchestratorEngine:
             incident_id=incident_id,
             history=history,
         )
+        self.last_state = state
 
         traces: list[AgentStepTrace] = []
         attempts_used = 1

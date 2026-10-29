@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from eoa.agents.artifacts import ArtifactsAgent
-from eoa.agents.base import BaseAgent
+from eoa.agents.base import AgentState, BaseAgent
 from eoa.agents.context import ContextManagerAgent
 from eoa.agents.explainer import ExplainerAgent
 from eoa.agents.specialized import SpecializedAgent
@@ -63,7 +63,11 @@ class ExplanationLayer:
         >>> layer = eoa.ExplanationLayer(provider="gemini", api_key="...")
         >>> layer.create_default_agents()
         >>> response = layer.explain(
-        ...     prediction={"target": "Pump", "status": "Degraded", "confidence": 0.88},
+        ...     prediction={
+        ...         "target_variable": "Pump",
+        ...         "predicted_value": "Degraded",
+        ...         "confidence_or_probability": 0.88,
+        ...     },
         ...     xai={"feature_attributions": {"PS1": 0.52, "EPS1": 0.38}},
         ...     user_query="What caused this degradation?",
         ... )
@@ -100,6 +104,7 @@ class ExplanationLayer:
         self._prompt_sources: dict[str, str] = {}
         # Session artifact cache to support fluid multi-turn without re-sending raw data
         self._session_cache: dict[str, dict[str, Any]] = {}
+        self.last_state: AgentState | None = None
 
         if auto_create_agents:
             self.create_default_agents()
@@ -444,6 +449,24 @@ class ExplanationLayer:
 
         return resolved_pred, resolved_xai, resolved_ctx, resolved_params
 
+    def _update_session_cache_from_state(
+        self,
+        session_id: str | None,
+        engine: OrchestratorEngine,
+    ) -> None:
+        """Persist tool-hydrated artifacts back into the session cache."""
+        self.last_state = engine.last_state
+        if not session_id or engine.last_state is None:
+            return
+        cache = self._session_cache.setdefault(session_id, {})
+        state = engine.last_state
+        if state.prediction is not None:
+            cache["prediction"] = state.prediction
+        if state.xai is not None:
+            cache["xai"] = state.xai
+        if state.context is not None and not state.context.is_empty():
+            cache["context"] = state.context
+
     def _record_validation_if_sqlite(
         self,
         session_id: str,
@@ -507,7 +530,10 @@ class ExplanationLayer:
 
         Example:
             >>> response = layer.explain(
-            ...     prediction={"target": "Pump", "status": "Degraded"},
+            ...     prediction={
+            ...         "target_variable": "Pump",
+            ...         "predicted_value": "Degraded",
+            ...     },
             ...     user_query="Explain the alert.",
             ...     session_id="incident_01",
             ... )
@@ -532,6 +558,7 @@ class ExplanationLayer:
             incident_id=incident_id,
             session_id=session_id,
         )
+        self._update_session_cache_from_state(session_id, engine)
 
         if session_id and response.session_id:
             self._record_validation_if_sqlite(response.session_id, response)
@@ -583,6 +610,7 @@ class ExplanationLayer:
             incident_id=incident_id,
             session_id=session_id,
         )
+        self._update_session_cache_from_state(session_id, engine)
 
         if session_id and response.session_id:
             self._record_validation_if_sqlite(response.session_id, response)

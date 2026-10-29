@@ -124,11 +124,17 @@ class ContextManagerAgent(BaseAgent):
     @staticmethod
     def _ingest_context_results(state: AgentState, results: list[Any]) -> None:
         """Hydrate state.context from tool execution results."""
-        for res in results:
+        for idx, res in enumerate(results, start=1):
             if isinstance(res, DomainContext):
                 state.context = state.context.merge(res) if state.context else res
             elif isinstance(res, dict):
                 ctx = DomainContext.from_input(res)
+                state.context = state.context.merge(ctx) if state.context else ctx
+            elif isinstance(res, str) and res.strip():
+                doc_key = f"tool_context_{idx}"
+                if state.context and doc_key in state.context.documents:
+                    doc_key = f"tool_context_{ len(state.context.documents) + 1 }"
+                ctx = DomainContext(documents={doc_key: res.strip()})
                 state.context = state.context.merge(ctx) if state.context else ctx
 
     def _build_prompt(self, state: AgentState) -> str:
@@ -162,16 +168,12 @@ class ContextManagerAgent(BaseAgent):
                 ),
             )
 
-        if state.context is not None and not state.context.is_empty():
-            output = llm.generate(self._build_prompt(state))
-            tool_outputs: list[Any] = []
-        else:
-            output, tool_outputs = self._run_with_tools_sync(
-                state,
-                llm,
-                prompt_builder=lambda _: self._build_prompt(state),
-                on_tool_results=lambda res: self._ingest_context_results(state, res),
-            )
+        output, tool_outputs = self._run_with_tools_sync(
+            state,
+            llm,
+            prompt_builder=lambda _: self._build_prompt(state),
+            on_tool_results=lambda res: self._ingest_context_results(state, res),
+        )
 
         state.context_summary = output
         return AgentResult(
@@ -203,16 +205,12 @@ class ContextManagerAgent(BaseAgent):
                 ),
             )
 
-        if state.context is not None and not state.context.is_empty():
-            output = await llm.agenerate(self._build_prompt(state))
-            tool_outputs: list[Any] = []
-        else:
-            output, tool_outputs = await self._run_with_tools_async(
-                state,
-                llm,
-                prompt_builder=lambda _: self._build_prompt(state),
-                on_tool_results=lambda res: self._ingest_context_results(state, res),
-            )
+        output, tool_outputs = await self._run_with_tools_async(
+            state,
+            llm,
+            prompt_builder=lambda _: self._build_prompt(state),
+            on_tool_results=lambda res: self._ingest_context_results(state, res),
+        )
 
         state.context_summary = output
         return AgentResult(
