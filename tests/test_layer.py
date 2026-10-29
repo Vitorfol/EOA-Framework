@@ -292,3 +292,66 @@ class TestAutonomousAndZeroML:
             user_query="What is the safety rule for pressure drops?",
         )
         assert res.validation_passed is True
+
+    def test_multi_turn_cma_progressive_tool_hydration_and_memory(self) -> None:
+        tools_called: list[str] = []
+
+        def buscar_documentacao(topico: str) -> str:
+            """Busca documentação do dataset."""
+            tools_called.append(f"doc:{topico}")
+            return "Dataset Doc: Sensor PS1 mede pressão de sucção em bar."
+
+        def buscar_manual(equipamento: str) -> str:
+            """Busca manual do equipamento."""
+            tools_called.append(f"manual:{equipamento}")
+            return "Manual P-101: Abrir válvula V-2 se PS1 > 4.0 bar."
+
+        def progressive_responder(
+            prompt: str, system_prompt: str | None = None
+        ) -> str:
+            if "score" in prompt.lower() and "issues" in prompt.lower():
+                return '{"score": 9.5, "issues": [], "critique": ""}'
+            if "## Tool-Dispatch Reasoning Instructions" in prompt:
+                if "Qual o significado no dataset" in prompt:
+                    return (
+                        '{"tool_calls": [{"name": "buscar_documentacao", '
+                        '"arguments": {"topico": "PS1"}}]}'
+                    )
+                if "Qual o procedimento no manual" in prompt:
+                    return (
+                        '{"tool_calls": [{"name": "buscar_manual", '
+                        '"arguments": {"equipamento": "P-101"}}]}'
+                    )
+                # Turn 3: no tool needed -> single-pass response
+                return "Contexto já consolidado nos turnos anteriores."
+            return f"Síntese validada para: {prompt[:80]}"
+
+        layer = ExplanationLayer.default_layer(llm=progressive_responder)
+        cma = layer.get_agent("context_manager")
+        cma.register_tool(buscar_documentacao)
+        cma.register_tool(buscar_manual)
+
+        # Turn 1: Needs dataset documentation -> calls buscar_documentacao
+        layer.explain(
+            user_query="Qual o significado no dataset?",
+            session_id="sess_prog",
+        )
+        assert tools_called == ["doc:PS1"]
+
+        # Turn 2: Needs equipment manual -> calls buscar_manual and merges into session
+        layer.explain(
+            user_query="Qual o procedimento no manual?",
+            session_id="sess_prog",
+        )
+        assert tools_called == ["doc:PS1", "manual:P-101"]
+        cached_ctx = layer._session_cache["sess_prog"]["context"]
+        assert len(cached_ctx.documents) == 2
+
+        # Turn 3: Follow-up summary -> calls 0 tools and uses accumulated memory!
+        tools_called.clear()
+        layer.explain(
+            user_query="Obrigado, faça um resumo geral.",
+            session_id="sess_prog",
+        )
+        assert tools_called == []
+        assert len(layer.get_history("sess_prog")) == 6
