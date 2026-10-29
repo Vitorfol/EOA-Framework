@@ -30,7 +30,7 @@ O desenvolvedor acabou de instalar via `pip install eoa` e só quer explicar uma
 import eoa
 
 # 1. Cria a camada padrão com o modelo desejado (o EOA gerencia tudo)
-layer = eoa.default_layer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
 
 # 2. Pede a explicação passando os dados brutos da predição
 response = layer.explain(
@@ -196,7 +196,7 @@ Como lidar com manuais de equipamentos industriais de centenas de páginas?
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # -------------------------------------------------------------
 # Opção A: Padrão do Paper (Estruturado - Leve, Rápido e Seguro)
@@ -240,7 +240,7 @@ from fastapi import FastAPI, HTTPException
 import eoa
 
 app = FastAPI(title="Planta Hidrelétrica - Monitoramento")
-explanation_layer = eoa.default_layer(provider="gemini", api_key="...")
+explanation_layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 @app.post("/api/v1/monitorar")
 async def monitorar_sensor(leitura: dict):
@@ -277,7 +277,7 @@ O desenvolvedor **não quer calcular ou passar o SHAP nem a predição na mão**
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # 1. Registra ferramentas de recuperação no ArtifactsAgent e ContextManagerAgent:
 aa = layer.get_agent("artifacts")
@@ -307,7 +307,7 @@ O desenvolvedor acabou de instalar o framework e ainda **não tem o modelo predi
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # O dev passa apenas a dúvida e o contexto do subsistema (prediction e xai são opcionais):
 response = layer.explain(

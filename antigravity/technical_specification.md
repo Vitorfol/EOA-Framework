@@ -208,19 +208,17 @@ classDiagram
     }
 
     class ContextRetriever {
-        <<Protocol / Abstract>>
-        +retrieve_context(query_or_keys: list~str~) dict
+        <<Protocol (PEP 544)>>
+        +retrieve(query: str, context: DomainContext) str
     }
 
     class StructuredContextRetriever {
-        -schemas: dict
-        -dictionary: dict
-        +retrieve_context(query_or_keys: list~str~) dict
+        +retrieve(query: str, context: DomainContext) str
     }
 
     class CustomRAGContextRetriever {
         <<User Pluggable>>
-        +retrieve_context(query_or_keys: list~str~) dict
+        +retrieve(query: str, context: DomainContext) str
     }
 
     ContextRetriever <|.. StructuredContextRetriever
@@ -263,7 +261,6 @@ classDiagram
     }
 
     class SpecializedAgent {
-        +domain_identifier: str
         +run(state: AgentState, llm: LLM) AgentResult
     }
 
@@ -291,12 +288,15 @@ classDiagram
         -session_store: SessionStore
         -prompt_manager: PromptManager
         -llm: LLM
-        +create_default_agents() None
+        +default_layer(...) ExplanationLayer
+        +create_default_agents(threshold: float) ExplanationLayer
         +register_agent(agent: BaseAgent) None
         +remove_agent(name: str) None
         +get_agent(name: str) BaseAgent
         +override_agent_prompt(name: str, prompt: str | Path | None) None
         +reset_agent_prompt(name: str) None
+        +get_history(session_id: str) list~ChatMessage~
+        +clear_session(session_id: str) None
         +inspect(print_output: bool) str | None
         +explain(...) ExplanationResponse
         +aexplain(...) ExplanationResponse
@@ -327,7 +327,7 @@ MAPA DE CLASSES DO FRAMEWORK
 
  [ Interfaces Base (Protocolos) ]
  ├── LLM                       -> Contrato de chamada ao LLM (PEP 544): generate(prompt) -> str
- ├── ContextRetriever          -> Contrato de busca de contexto: retrieve_context(keys) -> dict
+ ├── ContextRetriever          -> Contrato de busca de contexto: retrieve(query, context) -> str
  └── SessionStore              -> Contrato de persistência de chat: get_history(), append_message()
 
  [ Implementações de Armazenamento (SessionStore) ]
@@ -362,8 +362,8 @@ Para garantir que o desenvolvedor tenha controle total ("Developer is King"), o 
 
    # Variação B: Leitura automática do ambiente (export GEMINI_API_KEY="...")
    layer = eoa.ExplanationLayer(provider="gemini")
-   # ou instanciação zero-config direta via helper de 1 linha com agentes padrão:
-   layer = eoa.default_layer()
+   # ou instanciação zero-config direta via classmethod de 1 linha com agentes padrão:
+   layer = eoa.ExplanationLayer.default_layer()
    ```
 
 2. **Modo 2: Cliente Pronto (Bring Your Own Client)**:
@@ -423,6 +423,7 @@ Para garantir que as instruções dos agentes sejam transparentes, auditáveis e
   - `artifacts_default.md`: Instruções de análise de métricas XAI e predições do AA.
   - `explainer_default.md`: Instruções de síntese e tom narrativo do EA.
   - `validator_default.md`: Instruções do Quality Gate e critérios de scoring do VA.
+  - `tool_dispatch_default.md`: Instruções genéricas de *Single-Pass Tool-Dispatch Reasoning* para seleção autônoma de ferramentas e extração de parâmetros.
 - Todos seguem o formato **PTCF** (*Persona, Task, Context, Format*) e usam placeholders `{variavel}`
   (ex.: `{prediction}`, `{xai}`, `{domain_context}`, `{user_query}`) preenchidos por `PromptManager.render`.
 - Nomes completos são a chave canônica de agentes e arquivos: `context_manager`, `artifacts`, `explainer`, `validator`.
