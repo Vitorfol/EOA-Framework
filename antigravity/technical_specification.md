@@ -208,8 +208,8 @@ classDiagram
     }
 
     class ContextRetriever {
-        <<Protocol (PEP 544)>>
-        +retrieve(query: str, context: DomainContext) str
+        <<Protocol / Abstract>>
+        +retrieve_context(query_or_keys: list~str~) dict
     }
 
     class StructuredContextRetriever {
