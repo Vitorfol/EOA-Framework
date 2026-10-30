@@ -564,3 +564,45 @@ class TestSpecializedAgent:
                 user_query="Hello",
                 chat_history=[],  # type: ignore[call-arg]
             )
+
+    def test_explainer_auto_appends_critique_when_not_in_custom_prompt(
+        self,
+    ) -> None:
+        """Verify that when a custom prompt lacks {critique}, it is auto-appended."""
+        ea = ExplainerAgent(prompt="Explain concisely: {user_query}")
+        llm = MockLLM(
+            default_response="Corrected narrative following auditor feedback."
+        )
+        state = AgentState(
+            user_query="What is a pressure motor?",
+            validation_critique="Do not invent pneumatics; reference sensor EPS1.",
+        )
+
+        res = ea.run(state, llm)
+        assert res.output == "Corrected narrative following auditor feedback."
+        assert llm.last_prompt is not None
+        assert "Auditor Critique / Refinement Directives" in llm.last_prompt
+        assert "reference sensor EPS1." in llm.last_prompt
+
+    def test_agent_temperature_forwarded_to_llm(self) -> None:
+        """Verify agent-level temperature configuration is passed down to LLM calls."""
+        va = ValidatorAgent(threshold=7.0, temperature=0.0)
+        llm_va = MockLLM(
+            default_response='{"score": 9.0, "issues": [], "critique": ""}'
+        )
+        state = AgentState(user_query="Status")
+        va.run(state, llm_va)
+
+        assert llm_va.last_call is not None
+        assert llm_va.last_call.kwargs.get("temperature") == 0.0
+
+        spec = SpecializedAgent(
+            name="creative_agent",
+            prompt="Analyze: {user_query}",
+            temperature=0.8,
+        )
+        llm_spec = MockLLM(default_response="Creative domain summary.")
+        spec.run(state, llm_spec)
+
+        assert llm_spec.last_call is not None
+        assert llm_spec.last_call.kwargs.get("temperature") == 0.8

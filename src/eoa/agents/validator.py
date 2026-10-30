@@ -34,12 +34,14 @@ class ValidatorAgent(BaseAgent):
         prompt: str | Path | None = None,
         role: str | None = "Quality Gate Auditor",
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         super().__init__(
             name="validator",
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
         self._validate_threshold(threshold)
         self.threshold: float = threshold
@@ -234,6 +236,8 @@ class ValidatorAgent(BaseAgent):
         res = self._process_output(output, state)
         if tool_outputs:
             res.metadata["tool_outputs"] = tool_outputs
+            res.trace.details["tool_outputs"] = tool_outputs
+            state.metadata["validator_tool_outputs"] = tool_outputs
         return res
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> ValidationResult:
@@ -245,4 +249,6 @@ class ValidatorAgent(BaseAgent):
         res = self._process_output(output, state)
         if tool_outputs:
             res.metadata["tool_outputs"] = tool_outputs
+            res.trace.details["tool_outputs"] = tool_outputs
+            state.metadata["validator_tool_outputs"] = tool_outputs
         return res

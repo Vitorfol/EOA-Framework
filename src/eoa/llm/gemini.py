@@ -51,11 +51,13 @@ class GeminiProvider(LLM):
     """
 
     DEFAULT_MODEL = "gemini-3.5-flash-lite"
+    DEFAULT_TEMPERATURE = 0.0
 
     def __init__(
         self,
         api_key: str | None = None,
         model: str | None = None,
+        temperature: float | None = None,
         client: Any | None = None,
         **client_options: Any,
     ) -> None:
@@ -66,6 +68,8 @@ class GeminiProvider(LLM):
                 `GEMINI_API_KEY` environment variable.
             model: Optional model identifier. Defaults to `GEMINI_MODEL` env var
                 or 'gemini-3.5-flash-lite'.
+            temperature: Sampling temperature (0.0 to 2.0). Defaults to 0.0 for
+                reproducible, high-fidelity industrial explanations.
             client: Optional pre-configured `genai.Client` instance (Mode 2).
             **client_options: Additional options forwarded to `genai.Client`
                 when created.
@@ -87,6 +91,11 @@ class GeminiProvider(LLM):
             or self.DEFAULT_MODEL
         )
         self.model = resolved_model
+        self.temperature: float = (
+            float(temperature)
+            if temperature is not None
+            else self.DEFAULT_TEMPERATURE
+        )
 
         if client is not None:
             self.client = client
@@ -113,9 +122,10 @@ class GeminiProvider(LLM):
         if system_prompt:
             config_args["system_instruction"] = system_prompt
 
-        # Extract standard generation hyperparameters if present
-        if "temperature" in kwargs:
-            config_args["temperature"] = kwargs.pop("temperature")
+        # Resolve temperature: explicit kwarg overrides instance-level default
+        temp = kwargs.pop("temperature", self.temperature)
+        if temp is not None:
+            config_args["temperature"] = float(temp)
         if "top_p" in kwargs:
             config_args["top_p"] = kwargs.pop("top_p")
         if "top_k" in kwargs:

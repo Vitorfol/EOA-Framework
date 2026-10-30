@@ -120,6 +120,7 @@ class ExplanationLayer:
         session_store: SessionStore | None = None,
         threshold: float = 7.0,
         max_attempts: int = 3,
+        temperature: float | None = None,
         **llm_kwargs: Any,
     ) -> ExplanationLayer:
         """One-line factory method to initialize a ready-to-use ExplanationLayer.
@@ -135,6 +136,8 @@ class ExplanationLayer:
             session_store: Storage backend for multi-turn sessions (default: InMemory).
             threshold: Acceptance threshold for ValidatorAgent (default: 7.0).
             max_attempts: Maximum refinement attempts on failure (default: 3).
+            temperature: Optional sampling temperature applied to the layer LLM and
+                all default agents. Defaults to None (inheriting provider default 0.0).
             **llm_kwargs: Additional parameters forwarded to LLM creation.
 
         Returns:
@@ -144,6 +147,9 @@ class ExplanationLayer:
             >>> from eoa import ExplanationLayer
             >>> layer = ExplanationLayer.default_layer(model="gemini-3.6-flash")
         """
+        if temperature is not None and "temperature" not in llm_kwargs:
+            llm_kwargs["temperature"] = temperature
+
         layer = cls(
             llm=llm,
             provider=provider,
@@ -154,23 +160,30 @@ class ExplanationLayer:
             auto_create_agents=False,
             **llm_kwargs,
         )
-        layer.create_default_agents(threshold=threshold)
+        layer.create_default_agents(threshold=threshold, temperature=temperature)
         return layer
 
-    def create_default_agents(self, threshold: float = 7.0) -> ExplanationLayer:
+    def create_default_agents(
+        self,
+        threshold: float = 7.0,
+        temperature: float | None = None,
+    ) -> ExplanationLayer:
         """Instantiate and register the four core canonical agents (CMA, AA, EA, VA).
 
         Args:
             threshold: Quality Gate acceptance threshold (0.0 to 10.0) for the
                 ValidatorAgent. Defaults to 7.0.
+            temperature: Optional common sampling temperature applied to all
+                default agents (0.0 to 2.0). Defaults to None (inheriting the
+                layer/LLM default of 0.0 for strict, deterministic explainability).
 
         Returns:
             The current `ExplanationLayer` instance for fluent chaining.
         """
-        cma = ContextManagerAgent()
-        aa = ArtifactsAgent()
-        ea = ExplainerAgent()
-        va = ValidatorAgent(threshold=threshold)
+        cma = ContextManagerAgent(temperature=temperature)
+        aa = ArtifactsAgent(temperature=temperature)
+        ea = ExplainerAgent(temperature=temperature)
+        va = ValidatorAgent(threshold=threshold, temperature=temperature)
 
         self.register_agent(cma, prompt_source="Built-in")
         self.register_agent(aa, prompt_source="Built-in")
@@ -422,15 +435,25 @@ class ExplanationLayer:
         xai: XAIArtifact | dict[str, Any] | None,
         context: DomainContext | dict[str, Any] | None,
         query_params: dict[str, Any] | None,
+        metadata: dict[str, Any] | None = None,
     ) -> tuple[
         PredictionArtifact | dict[str, Any] | None,
         XAIArtifact | dict[str, Any] | None,
         DomainContext | dict[str, Any] | None,
         dict[str, Any] | None,
+        dict[str, str],
+        dict[str, Any],
     ]:
         """Cache and retrieve artifacts across conversational turns in a session."""
         if not session_id:
-            return prediction, xai, context, query_params
+            return (
+                prediction,
+                xai,
+                context,
+                query_params,
+                {},
+                dict(metadata or {}),
+            )
 
         cache = self._session_cache.setdefault(session_id, {})
 
@@ -448,6 +471,15 @@ class ExplanationLayer:
                     cache["context"] = DomainContext.from_input(stored_meta["context"])
                 if "query_params" not in cache and "query_params" in stored_meta:
                     cache["query_params"] = stored_meta["query_params"]
+                if (
+                    "specialist_insights" not in cache
+                    and "specialist_insights" in stored_meta
+                ):
+                    cache["specialist_insights"] = dict(
+                        stored_meta["specialist_insights"]
+                    )
+                if "metadata" not in cache and "metadata" in stored_meta:
+                    cache["metadata"] = dict(stored_meta["metadata"])
             except Exception as exc:
                 logger.debug("Failed restoring session metadata: %s", exc)
 
@@ -459,6 +491,8 @@ class ExplanationLayer:
             cache["context"] = context
         if query_params is not None:
             cache["query_params"] = query_params
+        if metadata:
+            cache.setdefault("metadata", {}).update(metadata)
 
         resolved_pred = (
             prediction if prediction is not None else cache.get("prediction")
@@ -468,8 +502,17 @@ class ExplanationLayer:
         resolved_params = (
             query_params if query_params is not None else cache.get("query_params")
         )
+        resolved_specialists = dict(cache.get("specialist_insights") or {})
+        resolved_metadata = dict(cache.get("metadata") or {})
 
-        return resolved_pred, resolved_xai, resolved_ctx, resolved_params
+        return (
+            resolved_pred,
+            resolved_xai,
+            resolved_ctx,
+            resolved_params,
+            resolved_specialists,
+            resolved_metadata,
+        )
 
     def _update_session_cache_from_state(
         self,
@@ -488,6 +531,12 @@ class ExplanationLayer:
             cache["xai"] = state.xai
         if state.context is not None and not state.context.is_empty():
             cache["context"] = state.context
+        if state.specialist_insights:
+            cache.setdefault("specialist_insights", {}).update(
+                state.specialist_insights
+            )
+        if state.metadata:
+            cache.setdefault("metadata", {}).update(state.metadata)
 
         # Persist artifacts into persistent SessionStore (e.g. SQLite sessions table)
         if hasattr(self.session_store, "set_session_metadata"):
@@ -514,6 +563,10 @@ class ExplanationLayer:
                     )
                 if "query_params" in cache and cache["query_params"] is not None:
                     stored["query_params"] = cache["query_params"]
+                if "specialist_insights" in cache and cache["specialist_insights"]:
+                    stored["specialist_insights"] = cache["specialist_insights"]
+                if "metadata" in cache and cache["metadata"]:
+                    stored["metadata"] = cache["metadata"]
                 self.session_store.set_session_metadata(session_id, stored)
             except Exception as exc:
                 logger.debug("Failed saving session metadata: %s", exc)
@@ -556,6 +609,7 @@ class ExplanationLayer:
         query_params: dict[str, Any] | None = None,
         incident_id: str | int | None = None,
         session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ExplanationResponse:
         """Generate a validated natural language explanation synchronously.
 
@@ -574,6 +628,7 @@ class ExplanationLayer:
             query_params: Parameters for autonomous tool retrieval (Pull mode).
             incident_id: Convenience identifier injected into `query_params`.
             session_id: Optional session identifier for multi-turn history.
+            metadata: Optional extensible session or operational metadata.
 
         Returns:
             An `ExplanationResponse` with narrative, validation score, pass flag,
@@ -592,12 +647,20 @@ class ExplanationLayer:
         """
         engine = self._build_engine()
 
-        res_pred, res_xai, res_ctx, res_params = self._resolve_session_artifacts(
+        (
+            res_pred,
+            res_xai,
+            res_ctx,
+            res_params,
+            res_specialists,
+            res_meta,
+        ) = self._resolve_session_artifacts(
             session_id=session_id,
             prediction=prediction,
             xai=xai,
             context=context,
             query_params=query_params,
+            metadata=metadata,
         )
 
         response = engine.run(
@@ -608,6 +671,8 @@ class ExplanationLayer:
             query_params=res_params,
             incident_id=incident_id,
             session_id=session_id,
+            prior_specialist_insights=res_specialists,
+            metadata=res_meta,
         )
         self._update_session_cache_from_state(session_id, engine)
 
@@ -626,6 +691,7 @@ class ExplanationLayer:
         query_params: dict[str, Any] | None = None,
         incident_id: str | int | None = None,
         session_id: str | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ExplanationResponse:
         """Generate a validated natural language explanation asynchronously.
 
@@ -637,6 +703,7 @@ class ExplanationLayer:
             query_params: Parameters for autonomous tool retrieval (Pull mode).
             incident_id: Convenience identifier injected into `query_params`.
             session_id: Optional session identifier for multi-turn history.
+            metadata: Optional extensible session or operational metadata.
 
         Returns:
             An `ExplanationResponse` with narrative, validation score, pass flag,
@@ -644,12 +711,20 @@ class ExplanationLayer:
         """
         engine = self._build_engine()
 
-        res_pred, res_xai, res_ctx, res_params = self._resolve_session_artifacts(
+        (
+            res_pred,
+            res_xai,
+            res_ctx,
+            res_params,
+            res_specialists,
+            res_meta,
+        ) = self._resolve_session_artifacts(
             session_id=session_id,
             prediction=prediction,
             xai=xai,
             context=context,
             query_params=query_params,
+            metadata=metadata,
         )
 
         response = await engine.arun(
@@ -660,6 +735,8 @@ class ExplanationLayer:
             query_params=res_params,
             incident_id=incident_id,
             session_id=session_id,
+            prior_specialist_insights=res_specialists,
+            metadata=res_meta,
         )
         self._update_session_cache_from_state(session_id, engine)
 

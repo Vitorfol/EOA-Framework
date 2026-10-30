@@ -283,6 +283,10 @@ class TestAutonomousAndZeroML:
             user_query="Investigate incident 402",
         )
         assert res.validation_passed is True
+        aa_trace = next(t for t in res.execution_trace if t.agent_name == "artifacts")
+        assert "tool_outputs" in aa_trace.details
+        assert layer.last_state is not None
+        assert "artifacts_tool_outputs" in layer.last_state.metadata
 
     def test_scenario_8_zero_ml_mode(self) -> None:
         layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
@@ -332,11 +336,17 @@ class TestAutonomousAndZeroML:
         cma.register_tool(buscar_manual)
 
         # Turn 1: Needs dataset documentation -> calls buscar_documentacao
-        layer.explain(
+        res1 = layer.explain(
             user_query="Qual o significado no dataset?",
             session_id="sess_prog",
         )
         assert tools_called == ["doc:PS1"]
+        cma_trace = next(
+            t for t in res1.execution_trace if t.agent_name == "context_manager"
+        )
+        assert "tool_outputs" in cma_trace.details
+        assert layer.last_state is not None
+        assert "context_manager_tool_outputs" in layer.last_state.metadata
 
         # Turn 2: Needs equipment manual -> calls buscar_manual and merges into session
         layer.explain(
@@ -401,3 +411,118 @@ class TestAutonomousAndZeroML:
         assert layer2.last_state.prediction.target_variable == "Pump"
         assert layer2.last_state.context is not None
         assert "PS1" in layer2.last_state.context.variables
+
+    def test_multi_turn_specialist_and_metadata_persistence_sqlite(
+        self, tmp_path: Path
+    ) -> None:
+        """Verify specialist insights and metadata persist across reboot in SQLite."""
+        db_file = tmp_path / "specialist_persist.db"
+        session_id = "incident_turbine_402"
+
+        store1 = SQLiteSessionStore(db_file)
+        layer1 = ExplanationLayer.default_layer(
+            llm=_make_smart_mock_llm(),
+            session_store=store1,
+        )
+
+        specialist = SpecializedAgent(
+            name="hydraulic_expert",
+            prompt="Evaluate hydraulic cavitation risk: {user_query}",
+        )
+        layer1.register_agent(specialist)
+
+        # Turn 1: Run with specialist and custom metadata
+        res1 = layer1.explain(
+            user_query="Cavitation observed on turbine 402.",
+            prediction={"target_variable": "Turbine", "predicted_value": "Warning"},
+            metadata={"sensor_tier": "critical_alpha", "facility_id": 402},
+            session_id=session_id,
+        )
+        assert res1.validation_passed is True
+        assert layer1.last_state is not None
+        assert "hydraulic_expert" in layer1.last_state.specialist_insights
+        assert layer1.last_state.metadata["sensor_tier"] == "critical_alpha"
+
+        # Instance 2: Reboot simulate with fresh ExplanationLayer pointing to same DB
+        store2 = SQLiteSessionStore(db_file)
+        layer2 = ExplanationLayer.default_layer(
+            llm=_make_smart_mock_llm(),
+            session_store=store2,
+        )
+        # Turn 2: Follow-up question without re-passing metadata or specialist
+        res2 = layer2.explain(
+            user_query="What was the previous hydraulic risk recommendation?",
+            session_id=session_id,
+        )
+        assert res2.validation_passed is True
+        assert layer2.last_state is not None
+        # Verify specialist insights and metadata survived reboot!
+        assert "hydraulic_expert" in layer2.last_state.specialist_insights
+        assert layer2.last_state.metadata["sensor_tier"] == "critical_alpha"
+        assert layer2.last_state.metadata["facility_id"] == 402
+
+    def test_tool_outputs_stored_in_trace_details_and_metadata(self) -> None:
+        """Verify tool execution outputs are recorded in trace details & metadata."""
+        from eoa.tools.base import Tool
+
+        def get_valve_status(valve_id: int) -> str:
+            return f"Valve {valve_id} is 82% open"
+
+        tool = Tool(
+            name="valve_inspector",
+            description="Inspect valve status by valve_id.",
+            fn=get_valve_status,
+        )
+
+        layer = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
+        specialist = SpecializedAgent(
+            name="valve_analyst",
+            prompt="Analyze valve: {tool_outputs}",
+            tools=[tool],
+        )
+        layer.register_agent(specialist)
+
+        response = layer.explain(
+            user_query="Check valve condition.",
+            query_params={"valve_id": 12},
+        )
+
+        assert response.validation_passed is True
+        # Check trace details
+        specialist_trace = next(
+            t for t in response.execution_trace if t.agent_name == "valve_analyst"
+        )
+        assert specialist_trace.details is not None
+        assert "tool_outputs" in specialist_trace.details
+        assert "Valve 12 is 82% open" in str(specialist_trace.details["tool_outputs"])
+
+        # Check blackboard state metadata
+        assert layer.last_state is not None
+        assert "valve_analyst_tool_outputs" in layer.last_state.metadata
+        assert "Valve 12 is 82% open" in str(
+            layer.last_state.metadata["valve_analyst_tool_outputs"]
+        )
+
+    def test_layer_temperature_configuration_on_default_agents(self) -> None:
+        """Verify layer temperature is propagated cleanly to all default agents."""
+        # 1. Default layer without explicit temperature (inherits provider default 0.0)
+        layer_default = ExplanationLayer.default_layer(llm=_make_smart_mock_llm())
+        assert layer_default.get_agent("explainer").temperature is None
+        assert layer_default.get_agent("validator").temperature is None
+        assert layer_default.get_agent("context_manager").temperature is None
+        assert layer_default.get_agent("artifacts").temperature is None
+
+        # 2. Layer with unified common temperature=0.3
+        layer_custom = ExplanationLayer.default_layer(
+            llm=_make_smart_mock_llm(),
+            temperature=0.3,
+        )
+        assert layer_custom.get_agent("explainer").temperature == 0.3
+        assert layer_custom.get_agent("validator").temperature == 0.3
+        assert layer_custom.get_agent("context_manager").temperature == 0.3
+        assert layer_custom.get_agent("artifacts").temperature == 0.3
+
+        # 3. Individual surgical override on a single agent
+        layer_custom.get_agent("validator").temperature = 0.0
+        assert layer_custom.get_agent("validator").temperature == 0.0
+        assert layer_custom.get_agent("explainer").temperature == 0.3

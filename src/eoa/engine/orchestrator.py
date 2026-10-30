@@ -105,6 +105,8 @@ class OrchestratorEngine:
         query_params: dict[str, Any] | None,
         incident_id: str | int | None,
         history: list[ChatMessage],
+        prior_specialist_insights: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> AgentState:
         """Coerce raw inputs into a strictly typed AgentState instance."""
         pred_obj = (
@@ -126,6 +128,8 @@ class OrchestratorEngine:
             xai=xai_obj,
             context=ctx_obj,
             history=history,
+            specialist_insights=dict(prior_specialist_insights or {}),
+            metadata=dict(metadata or {}),
         )
 
     @staticmethod
@@ -233,6 +237,8 @@ class OrchestratorEngine:
         query_params: dict[str, Any] | None = None,
         incident_id: str | int | None = None,
         session_id: str | None = None,
+        prior_specialist_insights: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ExplanationResponse:
         """Execute the full explanation and validation workflow synchronously.
 
@@ -247,6 +253,9 @@ class OrchestratorEngine:
             session_id: Optional conversation session identifier. If provided and a
                 ``session_store`` is configured, loads prior history and persists
                 the new turn. If omitted, runs statelessly with a generated UUID.
+            prior_specialist_insights: Optional cached specialist insights from
+                earlier session turns.
+            metadata: Optional extensible session or operational metadata.
 
         Returns:
             A validated ``ExplanationResponse`` containing the narrative, validation
@@ -290,6 +299,8 @@ class OrchestratorEngine:
             query_params=query_params,
             incident_id=incident_id,
             history=history,
+            prior_specialist_insights=prior_specialist_insights,
+            metadata=metadata,
         )
         self.last_state = state
 
@@ -552,6 +563,8 @@ class OrchestratorEngine:
         query_params: dict[str, Any] | None = None,
         incident_id: str | int | None = None,
         session_id: str | None = None,
+        prior_specialist_insights: dict[str, str] | None = None,
+        metadata: dict[str, Any] | None = None,
     ) -> ExplanationResponse:
         """Execute the full explanation and validation workflow asynchronously.
 
@@ -566,6 +579,9 @@ class OrchestratorEngine:
             session_id: Optional conversation session identifier. If provided and a
                 ``session_store`` is configured, loads prior history and persists
                 the new turn. If omitted, runs statelessly with a generated UUID.
+            prior_specialist_insights: Optional cached specialist insights from
+                earlier session turns.
+            metadata: Optional extensible session or operational metadata.
 
         Returns:
             A validated ``ExplanationResponse`` containing the narrative, validation
@@ -609,6 +625,8 @@ class OrchestratorEngine:
             query_params=query_params,
             incident_id=incident_id,
             history=history,
+            prior_specialist_insights=prior_specialist_insights,
+            metadata=metadata,
         )
         self.last_state = state
 

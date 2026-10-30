@@ -83,12 +83,14 @@ class ContextManagerAgent(BaseAgent):
         role: str | None = "Context Manager",
         retriever: ContextRetriever | Callable[[str], str] | None = None,
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         super().__init__(
             name="context_manager",
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
         self.retriever: ContextRetriever = StructuredContextRetriever()
         if retriever:
@@ -176,6 +178,9 @@ class ContextManagerAgent(BaseAgent):
         )
 
         state.context_summary = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
+
         return AgentResult(
             output=output,
             metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
@@ -184,6 +189,7 @@ class ContextManagerAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary="Domain context and manual rules structured successfully.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )
 
@@ -213,6 +219,9 @@ class ContextManagerAgent(BaseAgent):
         )
 
         state.context_summary = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
+
         return AgentResult(
             output=output,
             metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
@@ -221,5 +230,6 @@ class ContextManagerAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary="Domain context and manual rules structured successfully.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )

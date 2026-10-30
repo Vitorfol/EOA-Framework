@@ -30,6 +30,7 @@ class SpecializedAgent(BaseAgent):
         prompt: str | Path,
         role: str | None = None,
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         if not prompt:
             msg = f"SpecializedAgent '{name}' requires an explicit prompt."
@@ -39,6 +40,7 @@ class SpecializedAgent(BaseAgent):
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
 
     def _build_prompt(
@@ -94,6 +96,8 @@ class SpecializedAgent(BaseAgent):
             prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
         )
         state.specialist_insights[self.name] = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -103,6 +107,7 @@ class SpecializedAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary=self._format_trace_summary(tool_outputs),
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )
 
@@ -113,6 +118,8 @@ class SpecializedAgent(BaseAgent):
             prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
         )
         state.specialist_insights[self.name] = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -122,5 +129,6 @@ class SpecializedAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary=self._format_trace_summary(tool_outputs),
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )

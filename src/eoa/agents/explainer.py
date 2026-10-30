@@ -20,12 +20,14 @@ class ExplainerAgent(BaseAgent):
         prompt: str | Path | None = None,
         role: str | None = "Explainer",
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         super().__init__(
             name="explainer",
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
 
     def _format_history(self, history: list[ChatMessage]) -> str:
@@ -88,6 +90,12 @@ class ExplainerAgent(BaseAgent):
             rendered = f"{rendered.rstrip()}\n\nSpecialist Insights:\n{domain_text}"
         if "{user_query}" not in self.prompt and state.user_query:
             rendered = f"{rendered.rstrip()}\n\nUser Question:\n{state.user_query}"
+        if "{critique}" not in self.prompt and state.validation_critique:
+            rendered = (
+                f"{rendered.rstrip()}\n\n"
+                f"Auditor Critique / Refinement Directives (Mandatory Correction):\n"
+                f"{state.validation_critique}"
+            )
         return rendered
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
@@ -97,6 +105,8 @@ class ExplainerAgent(BaseAgent):
             prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
         )
         state.draft_explanation = output
+        if tool_outputs:
+            state.metadata["explainer_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -106,6 +116,7 @@ class ExplainerAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary="Synthesized narrative explanation for user query.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )
 
@@ -116,6 +127,8 @@ class ExplainerAgent(BaseAgent):
             prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
         )
         state.draft_explanation = output
+        if tool_outputs:
+            state.metadata["explainer_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -125,5 +138,6 @@ class ExplainerAgent(BaseAgent):
                 execution_time_ms=0.0,
                 summary="Synthesized narrative explanation for user query.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )

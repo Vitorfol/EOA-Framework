@@ -29,33 +29,39 @@ class ArtifactsAgent(BaseAgent):
         prompt: str | Path | None = None,
         role: str | None = "Artifacts Analyst",
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         super().__init__(
             name="artifacts",
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
 
-    def _hydrate_artifacts_from_tools_sync(self, state: AgentState, llm: LLM) -> None:
+    def _hydrate_artifacts_from_tools_sync(
+        self, state: AgentState, llm: LLM
+    ) -> list[Any]:
         """Hydrate prediction and xai from tools if missing."""
         if state.prediction is not None or not self.tools:
-            return
+            return []
 
         results = self._resolve_and_execute_tools_sync(state, llm)
         for res in results:
             self._apply_tool_result(state, res)
+        return results
 
     async def _hydrate_artifacts_from_tools_async(
         self, state: AgentState, llm: LLM
-    ) -> None:
+    ) -> list[Any]:
         """Asynchronously hydrate prediction and xai from tools if missing."""
         if state.prediction is not None or not self.tools:
-            return
+            return []
 
         results = await self._resolve_and_execute_tools_async(state, llm)
         for res in results:
             self._apply_tool_result(state, res)
+        return results
 
     @staticmethod
     def _apply_tool_result(state: AgentState, res: Any) -> None:
@@ -137,7 +143,9 @@ class ArtifactsAgent(BaseAgent):
         )
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        self._hydrate_artifacts_from_tools_sync(state, llm)
+        tool_outputs = self._hydrate_artifacts_from_tools_sync(state, llm)
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         # Zero ML / Progressive Ramp optimization: save tokens if no prediction exists
         if state.prediction is None:
@@ -145,30 +153,36 @@ class ArtifactsAgent(BaseAgent):
             state.artifacts_summary = output
             return AgentResult(
                 output=output,
+                metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
                 trace=AgentStepTrace(
                     agent_name=self.name,
                     execution_time_ms=0.0,
                     summary="Zero ML mode: Skipped LLM evaluation without prediction.",
                     status="success",
+                    details={"tool_outputs": tool_outputs} if tool_outputs else {},
                 ),
             )
 
         rendered_prompt = self._build_prompt(state)
-        output = llm.generate(rendered_prompt)
+        output = self._call_llm_sync(llm, rendered_prompt)
         state.artifacts_summary = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
                 summary="Prediction and XAI feature attributions analyzed.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
-        await self._hydrate_artifacts_from_tools_async(state, llm)
+        tool_outputs = await self._hydrate_artifacts_from_tools_async(state, llm)
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         # Zero ML / Progressive Ramp optimization
         if state.prediction is None:
@@ -176,24 +190,28 @@ class ArtifactsAgent(BaseAgent):
             state.artifacts_summary = output
             return AgentResult(
                 output=output,
+                metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
                 trace=AgentStepTrace(
                     agent_name=self.name,
                     execution_time_ms=0.0,
                     summary="Zero ML mode: Skipped LLM evaluation without prediction.",
                     status="success",
+                    details={"tool_outputs": tool_outputs} if tool_outputs else {},
                 ),
             )
 
         rendered_prompt = self._build_prompt(state)
-        output = await llm.agenerate(rendered_prompt)
+        output = await self._call_llm_async(llm, rendered_prompt)
         state.artifacts_summary = output
 
         return AgentResult(
             output=output,
+            metadata={"tool_outputs": tool_outputs} if tool_outputs else {},
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
                 summary="Prediction and XAI feature attributions analyzed.",
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )

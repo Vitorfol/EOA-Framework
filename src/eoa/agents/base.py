@@ -149,6 +149,13 @@ class AgentState(BaseModel):
         default=None,
         description="Latest structured audit evaluation produced by ValidatorAgent.",
     )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description=(
+            "Extensible blackboard dictionary for intermediate agent data, "
+            "custom artifacts, and tool outputs."
+        ),
+    )
 
 
 class BaseAgent(ABC):
@@ -171,6 +178,7 @@ class BaseAgent(ABC):
         prompt: str | Path | None = None,
         role: str | None = None,
         tools: list[Tool | Callable[..., Any]] | None = None,
+        temperature: float | None = None,
     ) -> None:
         self.name: str = name
         self.role: str | None = role
@@ -180,6 +188,9 @@ class BaseAgent(ABC):
             else ("Inline (str)" if isinstance(prompt, str) else "Built-in")
         )
         self.tools: list[Tool] = []
+        self.temperature: float | None = (
+            float(temperature) if temperature is not None else None
+        )
 
         if tools:
             for tool_or_fn in tools:
@@ -321,6 +332,30 @@ class BaseAgent(ABC):
 
         return isinstance(parsed, dict) and parsed.get("tool_calls") == []
 
+    def _call_llm_sync(
+        self,
+        llm: LLM,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
+        """Invoke LLM synchronously respecting agent-level hyperparameters."""
+        kwargs: dict[str, Any] = {}
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        return llm.generate(prompt, system_prompt=system_prompt, **kwargs)
+
+    async def _call_llm_async(
+        self,
+        llm: LLM,
+        prompt: str,
+        system_prompt: str | None = None,
+    ) -> str:
+        """Invoke LLM asynchronously respecting agent-level hyperparameters."""
+        kwargs: dict[str, Any] = {}
+        if self.temperature is not None:
+            kwargs["temperature"] = self.temperature
+        return await llm.agenerate(prompt, system_prompt=system_prompt, **kwargs)
+
     def _run_with_tools_sync(
         self,
         state: AgentState,
@@ -335,7 +370,7 @@ class BaseAgent(ABC):
         does a second LLM call occur with the resulting tool outputs injected.
         """
         if not self.tools:
-            return llm.generate(prompt_builder([])), []
+            return self._call_llm_sync(llm, prompt_builder([])), []
 
         results: list[Any] = []
         remaining_tools: list[Tool] = []
@@ -350,19 +385,19 @@ class BaseAgent(ABC):
             on_tool_results(results)
 
         if not remaining_tools or not state.user_query.strip():
-            return llm.generate(prompt_builder(results)), results
+            return self._call_llm_sync(llm, prompt_builder(results)), results
 
         base_prompt = prompt_builder(results)
         dispatch_block = self._build_tool_selection_prompt(
             state.user_query, remaining_tools
         )
         combined_prompt = f"{base_prompt.rstrip()}\n\n{dispatch_block}"
-        first_output = llm.generate(combined_prompt)
+        first_output = self._call_llm_sync(llm, combined_prompt)
         tool_calls = self._parse_tool_calls(first_output)
 
         if not tool_calls:
             if self._has_empty_tool_calls(first_output):
-                return llm.generate(base_prompt), results
+                return self._call_llm_sync(llm, base_prompt), results
             return first_output, results
 
         new_results: list[Any] = []
@@ -384,9 +419,9 @@ class BaseAgent(ABC):
             results.extend(new_results)
             if on_tool_results is not None:
                 on_tool_results(new_results)
-            return llm.generate(prompt_builder(results)), results
+            return self._call_llm_sync(llm, prompt_builder(results)), results
 
-        return llm.generate(base_prompt), results
+        return self._call_llm_sync(llm, base_prompt), results
 
     async def _run_with_tools_async(
         self,
@@ -397,7 +432,7 @@ class BaseAgent(ABC):
     ) -> tuple[str, list[Any]]:
         """Asynchronously execute single-pass agent generation with tools."""
         if not self.tools:
-            return await llm.agenerate(prompt_builder([])), []
+            return await self._call_llm_async(llm, prompt_builder([])), []
 
         results: list[Any] = []
         remaining_tools: list[Tool] = []
@@ -413,19 +448,19 @@ class BaseAgent(ABC):
             on_tool_results(results)
 
         if not remaining_tools or not state.user_query.strip():
-            return await llm.agenerate(prompt_builder(results)), results
+            return await self._call_llm_async(llm, prompt_builder(results)), results
 
         base_prompt = prompt_builder(results)
         dispatch_block = self._build_tool_selection_prompt(
             state.user_query, remaining_tools
         )
         combined_prompt = f"{base_prompt.rstrip()}\n\n{dispatch_block}"
-        first_output = await llm.agenerate(combined_prompt)
+        first_output = await self._call_llm_async(llm, combined_prompt)
         tool_calls = self._parse_tool_calls(first_output)
 
         if not tool_calls:
             if self._has_empty_tool_calls(first_output):
-                return await llm.agenerate(base_prompt), results
+                return await self._call_llm_async(llm, base_prompt), results
             return first_output, results
 
         new_results: list[Any] = []
@@ -448,9 +483,9 @@ class BaseAgent(ABC):
             results.extend(new_results)
             if on_tool_results is not None:
                 on_tool_results(new_results)
-            return await llm.agenerate(prompt_builder(results)), results
+            return await self._call_llm_async(llm, prompt_builder(results)), results
 
-        return await llm.agenerate(base_prompt), results
+        return await self._call_llm_async(llm, base_prompt), results
 
     def _resolve_and_execute_tools_sync(
         self, state: AgentState, llm: LLM
@@ -474,7 +509,7 @@ class BaseAgent(ABC):
         selection_prompt = self._build_tool_selection_prompt(
             state.user_query, remaining_tools
         )
-        raw_decision = llm.generate(selection_prompt)
+        raw_decision = self._call_llm_sync(llm, selection_prompt)
         tool_calls = self._parse_tool_calls(raw_decision)
 
         for call in tool_calls:
@@ -516,7 +551,7 @@ class BaseAgent(ABC):
         selection_prompt = self._build_tool_selection_prompt(
             state.user_query, remaining_tools
         )
-        raw_decision = await llm.agenerate(selection_prompt)
+        raw_decision = await self._call_llm_async(llm, selection_prompt)
         tool_calls = self._parse_tool_calls(raw_decision)
 
         for call in tool_calls:
