@@ -125,6 +125,10 @@ class ValidatorAgent(BaseAgent):
             else:
                 parts.append(state.context_summary)
 
+        if state.specialist_insights:
+            for spec_name, insight in state.specialist_insights.items():
+                parts.append(f"Specialist Insight ({spec_name}):\n{insight}")
+
         if not parts:
             return "No domain context provided."
 

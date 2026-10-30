@@ -606,3 +606,21 @@ class TestSpecializedAgent:
 
         assert llm_spec.last_call is not None
         assert llm_spec.last_call.kwargs.get("temperature") == 0.8
+
+    def test_validator_includes_specialist_insights_in_ground_truth(self) -> None:
+        """Verify ValidatorAgent includes specialist_insights in ground-truth domain."""
+        va = ValidatorAgent(threshold=7.0)
+        llm_va = MockLLM(
+            default_response='{"score": 10.0, "issues": [], "critique": ""}'
+        )
+        state = AgentState(
+            user_query="What is the soma_fake of 10 and 20?",
+            specialist_insights={"math": "Tool soma_fake computed 10 * 20 = 200."},
+            draft_explanation="The soma_fake of 10 and 20 is 200.",
+        )
+
+        res = va.run(state, llm_va)
+        assert res.passed is True
+        assert llm_va.last_prompt is not None
+        assert "Specialist Insight (math):" in llm_va.last_prompt
+        assert "Tool soma_fake computed 10 * 20 = 200." in llm_va.last_prompt
