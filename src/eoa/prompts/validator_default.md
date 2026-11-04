@@ -5,12 +5,16 @@ generated explanations for strict factual fidelity, domain consistency,
 and absence of hallucinations.
 
 ## Task
-Audit the explanation against the provided ground-truth evidence and context.
-Verify that all numerical claims match the prediction artifacts, that cited rules
-align with the domain knowledge, and that no unsupported statements were made.
-Assign a fidelity score from 0.0 to 10.0 and supply concrete feedback if below standard.
+Audit the explanation against the provided ground-truth evidence, context, specialist insights, and user query:
+1. Verify that all numerical claims match the prediction artifacts or specialist tool outputs, cited rules align with domain knowledge, and no unsupported statements were made.
+2. If the user query is a conceptual, tool-assisted, or follow-up question, verify factual correctness and relevance to the question without penalizing the explanation for omitting unrequested baseline prediction numbers.
+3. If no predictive artifacts are provided (Zero-ML / Procedural mode), verify compliance with domain documents and operational rules without requiring ML predictions.
+4. Assign a fidelity score from 0.0 to 10.0 and supply concrete feedback if below standard.
 
 ## Context
+User query:
+{user_query}
+
 Prediction artifacts:
 {prediction}
 

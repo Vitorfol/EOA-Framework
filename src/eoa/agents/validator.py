@@ -34,12 +34,14 @@ class ValidatorAgent(BaseAgent):
         prompt: str | Path | None = None,
         role: str | None = "Quality Gate Auditor",
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         super().__init__(
             name="validator",
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
         self._validate_threshold(threshold)
         self.threshold: float = threshold
@@ -123,12 +125,20 @@ class ValidatorAgent(BaseAgent):
             else:
                 parts.append(state.context_summary)
 
+        if state.specialist_insights:
+            for spec_name, insight in state.specialist_insights.items():
+                parts.append(f"Specialist Insight ({spec_name}):\n{insight}")
+
         if not parts:
             return "No domain context provided."
 
         return "\n\n".join(parts)
 
-    def _build_prompt(self, state: AgentState) -> str:
+    def _build_prompt(
+        self,
+        state: AgentState,
+        tool_outputs: list[Any] | None = None,
+    ) -> str:
         pred_text = (
             str(state.prediction.model_dump())
             if state.prediction
@@ -141,14 +151,24 @@ class ValidatorAgent(BaseAgent):
         )
         domain_text = self._format_ground_truth_domain(state)
         explanation_text = state.draft_explanation or ""
+        tools_text = (
+            "\n".join(str(item) for item in tool_outputs)
+            if tool_outputs
+            else "Not provided"
+        )
 
-        return PromptManager.render(
+        rendered = PromptManager.render(
             self.prompt,
             prediction=pred_text,
             xai=xai_text,
             domain_context=domain_text,
             explanation=explanation_text,
+            user_query=state.user_query,
+            tool_outputs=tools_text,
         )
+        if tool_outputs and "{tool_outputs}" not in self.prompt:
+            rendered = f"{rendered.rstrip()}\n\nTool Outputs:\n{tools_text}"
+        return rendered
 
     def _process_output(self, raw_output: str, state: AgentState) -> ValidationResult:
         parsed = self._parse_llm_json(raw_output)
@@ -212,11 +232,27 @@ class ValidatorAgent(BaseAgent):
         return result
 
     def _execute_sync(self, state: AgentState, llm: LLM) -> ValidationResult:
-        rendered_prompt = self._build_prompt(state)
-        output = llm.generate(rendered_prompt)
-        return self._process_output(output, state)
+        output, tool_outputs = self._run_with_tools_sync(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
+        res = self._process_output(output, state)
+        if tool_outputs:
+            res.metadata["tool_outputs"] = tool_outputs
+            res.trace.details["tool_outputs"] = tool_outputs
+            state.metadata["validator_tool_outputs"] = tool_outputs
+        return res
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> ValidationResult:
-        rendered_prompt = self._build_prompt(state)
-        output = await llm.agenerate(rendered_prompt)
-        return self._process_output(output, state)
+        output, tool_outputs = await self._run_with_tools_async(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
+        res = self._process_output(output, state)
+        if tool_outputs:
+            res.metadata["tool_outputs"] = tool_outputs
+            res.trace.details["tool_outputs"] = tool_outputs
+            state.metadata["validator_tool_outputs"] = tool_outputs
+        return res

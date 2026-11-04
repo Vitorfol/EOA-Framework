@@ -30,17 +30,17 @@ O desenvolvedor acabou de instalar via `pip install eoa` e só quer explicar uma
 import eoa
 
 # 1. Cria a camada padrão com o modelo desejado (o EOA gerencia tudo)
-layer = eoa.default_layer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="AIzaSy...", model="gemini-2.5-flash")
 
 # 2. Pede a explicação passando os dados brutos da predição
 response = layer.explain(
     prediction={
-        "target": "Condição do Resfriador",
-        "status": "Eficiência Reduzida (20%)",
-        "probabilidade": 0.82
+        "target_variable": "Condição do Resfriador",
+        "predicted_value": "Eficiência Reduzida (20%)",
+        "confidence_or_probability": 0.82
     },
     xai={
-        "top_features": {"PS1_pressao": 0.45, "EPS1_potencia_motor": 0.35, "TS2_temperatura": 0.20}
+        "feature_attributions": {"PS1_pressao": 0.45, "EPS1_potencia_motor": 0.35, "TS2_temperatura": 0.20}
     },
     user_query="Explique por que esse alerta disparou e o que devo verificar."
 )
@@ -149,15 +149,20 @@ layer = eoa.ExplanationLayer(
     session_store=eoa.SQLiteSessionStore(db_path="meus_alertas.db"),
 )
 
-# Inicia ou retoma uma sessão com o ID do incidente
-chat = layer.create_session(session_id="incidente_turbina_04")
-
-# Turno 1
-res1 = chat.ask("O que significa essa vibração no sensor PS1?")
+# Turno 1: Passa predição e pergunta inicial vinculados à sessão do incidente
+res1 = layer.explain(
+    prediction=pred_dados,
+    xai=xai_dados,
+    user_query="O que significa essa vibração no sensor PS1?",
+    session_id="incidente_turbina_04",
+)
 print(res1.narrative)
 
-# Turno 2 (O agente lembra do contexto do turno anterior!)
-res2 = chat.ask("Isso tem risco iminente de cavitação se mantivermos a carga atual?")
+# Turno 2: Pergunta subsequente (o agente lembra do contexto e das evidências anteriores!)
+res2 = layer.explain(
+    user_query="Isso tem risco iminente de cavitação se mantivermos a carga atual?",
+    session_id="incidente_turbina_04",
+)
 print(res2.narrative)
 
 
@@ -191,7 +196,7 @@ Como lidar com manuais de equipamentos industriais de centenas de páginas?
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # -------------------------------------------------------------
 # Opção A: Padrão do Paper (Estruturado - Leve, Rápido e Seguro)
@@ -235,7 +240,7 @@ from fastapi import FastAPI, HTTPException
 import eoa
 
 app = FastAPI(title="Planta Hidrelétrica - Monitoramento")
-explanation_layer = eoa.default_layer(provider="gemini", api_key="...")
+explanation_layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 @app.post("/api/v1/monitorar")
 async def monitorar_sensor(leitura: dict):
@@ -272,7 +277,7 @@ O desenvolvedor **não quer calcular ou passar o SHAP nem a predição na mão**
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # 1. Registra ferramentas de recuperação no ArtifactsAgent e ContextManagerAgent:
 aa = layer.get_agent("artifacts")
@@ -302,7 +307,7 @@ O desenvolvedor acabou de instalar o framework e ainda **não tem o modelo predi
 ```python
 import eoa
 
-layer = eoa.default_layer(provider="gemini", api_key="...")
+layer = eoa.ExplanationLayer.default_layer(provider="gemini", api_key="...")
 
 # O dev passa apenas a dúvida e o contexto do subsistema (prediction e xai são opcionais):
 response = layer.explain(

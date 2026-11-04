@@ -247,20 +247,21 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 ### 🎯 ÉPICO 08: Fachada Principal do Desenvolvedor (Developer Experience - DX)
 > **Objetivo**: A interface amigável que faz o desenvolvedor dizer *"Nossa, quem fez isso realmente se importou com a facilidade de uso"*.
 
-- [ ] **TASK-08.1: Implementação da `ExplanationLayer` (`src/eoa/layer.py` & `src/eoa/__init__.py`)**
-  - [ ] Métodos limpos: `explain(...)`, `create_session(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `get_agent(...)`, `remove_agent(...)`.
-  - [ ] Suporte aos dois modos de consumo: Modo Direto (passando predição/XAI) e Modo Autônomo (passando incident_id).
-  - [ ] Função helper `eoa.default_layer(...)` para inicialização imediata em 1 linha.
-  - [ ] Testes de ponta a ponta dos cenários da jornada do desenvolvedor.
-- [ ] **TASK-08.2: Ferramenta de Linha de Comando (CLI) (`src/eoa/cli.py`)**
-  - [ ] Comando `eoa list --agents --prompts` para inspecionar agentes ativos e caminhos de prompts.
-  - [ ] Comando `eoa init` para criar pasta padrão de prompts e arquivo de configuração no projeto do dev.
-  - [ ] Testes da CLI.
+- [x] **TASK-08.1: Implementação da `ExplanationLayer` (`src/eoa/layer.py` & `src/eoa/__init__.py`)**
+  - [x] Métodos limpos: `explain(...)`, `aexplain(...)`, `create_default_agents(...)`, `register_agent(...)`, `override_agent_prompt(...)`, `reset_agent_prompt(...)`, `get_agent(...)`, `remove_agent(...)`, `get_history(...)`, `clear_session(...)`, `inspect()`.
+  - [x] Suporte unificado aos modos Direto (Push), Autônomo (Pull via incident_id/query_params ou seleção/extração autônoma via LLM reasoning), Zero ML e Multi-Turn via `session_id` com cache de artefatos da sessão e gravação em `validation_logs` (SQLite).
+  - [x] Carregamento desacoplado de `.env`: mantendo o core ultra-leve e Twelve-Factor (consultando `os.environ`), com leitura configurada em `tests/conftest.py` e exemplos interativos.
+  - [x] Factory em 1 linha via `@classmethod ExplanationLayer.default_layer(...)` nos 3 modos de LLM.
+  - [x] Testes de ponta a ponta determinísticos (`tests/test_layer.py`) e live com Gemini (`tests/test_layer_live.py`).
+  - [x] Notebooks interativos separados em Mock/Offline (`examples/01_walkthrough_mock.ipynb`), Live Gemini (`examples/02_walkthrough_live_gemini.ipynb`) e Guia de Referência Completo da API (`examples/README.md`).
+- [x] **TASK-08.2: Polimento da API Pública e Documentação da DX**
+  - [x] Métodos de conveniência na camada (`layer.inspect()`, `layer.reset_agent_prompt(...)`, `layer.get_history(...)`, `layer.clear_session(...)`).
+  - [x] Guia completo de referência da API pública em `examples/README.md`.
 
 ---
 
-### 🔬 ÉPICO 09: Casos de Uso Reais, Validação Empírica & Preparação para o ICSE
-> **Objetivo**: Construir os experimentos e evidências científicas de software engineering exigidos pelo ICSE.
+### 🔬 ÉPICO 09: Casos de Uso Reais, Validação Empírica & Preparação para o Artigo
+> **Objetivo**: Construir os experimentos e evidências científicas de engenharia de software exigidos para o artigo (JSS / ICSE) e registro de software.
 
 - [ ] **TASK-09.1: Reprodução do Caso Hidráulico do SBES como Exemplo Oficial**
   - [ ] Criar pasta `examples/predictive_maintenance/` reproduzindo os dados do dataset hidráulico da UCI (cenário da hidrelétrica do paper).
@@ -269,4 +270,17 @@ MATRIZ DE DEPENDÊNCIAS DO PROJETO (BLOQUEANTE vs. DESTRAVADO)
 - [ ] **TASK-09.3: Instrumentação de Benchmarks de Engenharia de Software**
   - [ ] Medir overhead computacional da engine (latência em ms do framework excluindo a chamada do LLM).
   - [ ] Medir eficácia do loop do ValidatorAgent (taxa de alucinações corrigidas vs. tentativas).
-  - [ ] Coleta de dados para a seção de avaliação empírica do paper do ICSE.
+  - [ ] Coleta de dados para a seção de avaliação empírica do artigo.
+
+---
+
+## 🚀 3. Roadmap Pós-v0.1.0 (Evoluções Futuras Mapeadas para v0.2.0)
+
+Itens deliberadamente fora do escopo da `v0.1.0` para manter o core enxuto, estável e focado na validação científica e registro de software:
+
+- [ ] **Edição e Customização Controlada do Grafo de Execução (Custom DAG)**:
+  - Permitir que o desenvolvedor altere a topologia de execução entre agentes (encadeamento sequencial entre especialistas, hooks condicionais e grafos customizados).
+- [ ] **Agente Roteador / Dispatcher Central Opcional**:
+  - Opção de configurar um agente planejador inicial para selecionar seletivamente quais especialistas e ferramentas ativar em sistemas com dezenas de agentes.
+- [ ] **CLI Externa de Linha de Comando (`eoa`)**:
+  - Ferramenta de terminal (`eoa inspect`, `eoa init`) postergada para manter a `v0.1.0` focada 100% na experiência programática em Python (`layer.inspect()`).

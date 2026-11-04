@@ -70,6 +70,45 @@ class TestTool:
         with pytest.raises(TypeError, match="must be callable"):
             Tool("not_a_callable")  # type: ignore[arg-type]
 
+    def test_tool_schema_introspection_and_descriptor(self) -> None:
+        def compute_metrics(
+            sensor_id: str,
+            threshold: float = 4.0,
+            retries: int = 3,
+        ) -> dict:
+            """Compute equipment sensor metrics."""
+            return {
+                "sensor": sensor_id,
+                "passed": threshold > 0,
+                "retries": retries,
+            }
+
+        tool = Tool(compute_metrics)
+        schema = tool.parameters_schema
+        assert schema["type"] == "object"
+        assert schema["required"] == ["sensor_id"]
+        assert schema["properties"]["sensor_id"]["type"] == "string"
+        assert schema["properties"]["threshold"]["type"] == "number"
+        assert schema["properties"]["threshold"]["default"] == 4.0
+        assert schema["properties"]["retries"]["type"] == "integer"
+        assert schema["properties"]["retries"]["default"] == 3
+
+        desc = tool.to_descriptor()
+        assert desc["name"] == "compute_metrics"
+        assert desc["description"] == "Compute equipment sensor metrics."
+        assert desc["parameters"] == schema
+
+    def test_tool_type_coercion_on_execution(self) -> None:
+        def multiply(a: int, b: float, tag: str) -> dict:
+            return {"result": a * b, "tag": tag}
+
+        tool = Tool(multiply)
+        # Pass string-encoded arguments coming from LLM JSON extraction
+        res = tool.execute(a="10", b="2.5", tag=123)
+        assert res == {"result": 25.0, "tag": "123"}
+        assert isinstance(res["result"], float)
+        assert isinstance(res["tag"], str)
+
 
 # =========================================================================
 # 2. Tests for ContextManagerAgent (CMA) and ContextRetriever
@@ -415,6 +454,104 @@ class TestSpecializedAgent:
             {"turbine": "T-101", "bearing_temp_c": 94.5}
         ]
 
+    def test_specialized_agent_autonomous_tool_reasoning_and_skip(self) -> None:
+        calls_made: list[tuple[int, int]] = []
+
+        def soma_fake(a: int, b: int) -> int:
+            """Multiplica os fatores simulando uma soma fake customizada."""
+            calls_made.append((a, b))
+            return a * b
+
+        sa = SpecializedAgent(
+            name="math",
+            prompt="Resultado da tool: {tool_outputs} | Dúvida: {user_query}",
+            tools=[soma_fake],
+        )
+
+        # Tool schema introspection check
+        tool_obj = sa.get_tool("soma_fake")
+        assert tool_obj is not None
+        assert tool_obj.parameters_schema["properties"]["a"]["type"] == "integer"
+        assert tool_obj.parameters_schema["required"] == ["a", "b"]
+
+        def reasoning_responder(prompt: str, system_prompt: str | None = None) -> str:
+            if "## Tool-Dispatch Reasoning Instructions" in prompt:
+                if "2 e 3" in prompt:
+                    return (
+                        '{"tool_calls": ['
+                        '{"name": "soma_fake", "arguments": {"a": "2", "b": 3}}'
+                        "]}"
+                    )
+                # Single-pass: when no tool is needed, reply directly in 1 call!
+                return "Um motor elétrico converte energia elétrica em mecânica."
+            return f"Parecer do especialista sobre: {prompt}"
+
+        llm = MockLLM(custom_generator=reasoning_responder)
+
+        # Case 1: User asks for calculation in natural language without query_params
+        state_calc = AgentState(
+            user_query="Apresente o resultado da soma fake para 2 e 3."
+        )
+        res_calc = sa.run(state_calc, llm)
+        assert calls_made == [(2, 3)]
+        assert res_calc.metadata["tool_outputs"] == [6]
+        assert "Resultado da tool: 6" in res_calc.output
+        assert llm.call_count == 2  # 1st call: tool_calls JSON -> 2nd call: synthesis
+
+        # Case 2: Unrelated conceptual question -> skips tool in 1 single LLM call!
+        calls_made.clear()
+        state_unrelated = AgentState(user_query="O que é um motor elétrico?")
+        res_unrelated = sa.run(state_unrelated, llm)
+        assert calls_made == []
+        assert "tool_outputs" not in res_unrelated.metadata
+        assert "no tools triggered" in res_unrelated.trace.summary
+        assert "converte energia elétrica" in res_unrelated.output
+        assert llm.call_count == 3  # Only +1 call (Single-Pass: 0 wasted calls!)
+
+    def test_explainer_and_validator_support_tools(self) -> None:
+        def format_tag(unit_id: str) -> str:
+            return f"[UNIT:{unit_id}]"
+
+        ea = ExplainerAgent(tools=[format_tag])
+        va = ValidatorAgent(tools=[format_tag])
+
+        llm_ea = MockLLM(default_response="Narrative with unit tag.")
+        state = AgentState(
+            user_query="Status",
+            query_params={"unit_id": "U-09"},
+        )
+        res_ea = ea.run(state, llm_ea)
+        assert res_ea.metadata["tool_outputs"] == ["[UNIT:U-09]"]
+        assert "[UNIT:U-09]" in llm_ea.last_prompt
+
+        llm_va = MockLLM(
+            default_response='{"score": 9.2, "issues": [], "critique": ""}'
+        )
+        res_va = va.run(state, llm_va)
+        assert res_va.metadata["tool_outputs"] == ["[UNIT:U-09]"]
+        assert "[UNIT:U-09]" in llm_va.last_prompt
+
+    def test_base_agent_empty_tool_calls_fallback(self) -> None:
+        def dummy_tool(x: int) -> int:
+            return x * 2
+
+        ea = ExplainerAgent(tools=[dummy_tool])
+
+        def responder_with_explicit_empty_json(
+            prompt: str, system_prompt: str | None = None
+        ) -> str:
+            if "## Tool-Dispatch Reasoning Instructions" in prompt:
+                # LLM returns an empty JSON tool_calls block
+                return '{"tool_calls": []}'
+            return "Fallback normal narrative text."
+
+        llm = MockLLM(custom_generator=responder_with_explicit_empty_json)
+        state = AgentState(user_query="How does the system work?")
+
+        res = ea.run(state, llm)
+        assert res.output == "Fallback normal narrative text."
+        assert "tool_outputs" not in res.metadata
+
     def test_specialized_agent_requires_explicit_prompt(self) -> None:
         with pytest.raises(ValueError, match="requires an explicit prompt"):
             SpecializedAgent(name="custom", prompt="")  # type: ignore[arg-type]
@@ -427,3 +564,63 @@ class TestSpecializedAgent:
                 user_query="Hello",
                 chat_history=[],  # type: ignore[call-arg]
             )
+
+    def test_explainer_auto_appends_critique_when_not_in_custom_prompt(
+        self,
+    ) -> None:
+        """Verify that when a custom prompt lacks {critique}, it is auto-appended."""
+        ea = ExplainerAgent(prompt="Explain concisely: {user_query}")
+        llm = MockLLM(
+            default_response="Corrected narrative following auditor feedback."
+        )
+        state = AgentState(
+            user_query="What is a pressure motor?",
+            validation_critique="Do not invent pneumatics; reference sensor EPS1.",
+        )
+
+        res = ea.run(state, llm)
+        assert res.output == "Corrected narrative following auditor feedback."
+        assert llm.last_prompt is not None
+        assert "Auditor Critique / Refinement Directives" in llm.last_prompt
+        assert "reference sensor EPS1." in llm.last_prompt
+
+    def test_agent_temperature_forwarded_to_llm(self) -> None:
+        """Verify agent-level temperature configuration is passed down to LLM calls."""
+        va = ValidatorAgent(threshold=7.0, temperature=0.0)
+        llm_va = MockLLM(
+            default_response='{"score": 9.0, "issues": [], "critique": ""}'
+        )
+        state = AgentState(user_query="Status")
+        va.run(state, llm_va)
+
+        assert llm_va.last_call is not None
+        assert llm_va.last_call.kwargs.get("temperature") == 0.0
+
+        spec = SpecializedAgent(
+            name="creative_agent",
+            prompt="Analyze: {user_query}",
+            temperature=0.8,
+        )
+        llm_spec = MockLLM(default_response="Creative domain summary.")
+        spec.run(state, llm_spec)
+
+        assert llm_spec.last_call is not None
+        assert llm_spec.last_call.kwargs.get("temperature") == 0.8
+
+    def test_validator_includes_specialist_insights_in_ground_truth(self) -> None:
+        """Verify ValidatorAgent includes specialist_insights in ground-truth domain."""
+        va = ValidatorAgent(threshold=7.0)
+        llm_va = MockLLM(
+            default_response='{"score": 10.0, "issues": [], "critique": ""}'
+        )
+        state = AgentState(
+            user_query="What is the soma_fake of 10 and 20?",
+            specialist_insights={"math": "Tool soma_fake computed 10 * 20 = 200."},
+            draft_explanation="The soma_fake of 10 and 20 is 200.",
+        )
+
+        res = va.run(state, llm_va)
+        assert res.passed is True
+        assert llm_va.last_prompt is not None
+        assert "Specialist Insight (math):" in llm_va.last_prompt
+        assert "Tool soma_fake computed 10 * 20 = 200." in llm_va.last_prompt

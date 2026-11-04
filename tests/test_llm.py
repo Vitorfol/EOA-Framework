@@ -165,6 +165,7 @@ async def test_gemini_provider_async_agenerate_mocked() -> None:
     assert call_kwargs["model"] == "gemini-3.8-flash"
     assert call_kwargs["contents"] == "Inspect valve"
     assert call_kwargs["config"].system_instruction == "Safety Auditor"
+    assert call_kwargs["config"].temperature == 0.0
 
 
 # ==============================================================================

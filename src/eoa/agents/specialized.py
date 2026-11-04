@@ -30,6 +30,7 @@ class SpecializedAgent(BaseAgent):
         prompt: str | Path,
         role: str | None = None,
         tools: list[Any] | None = None,
+        temperature: float | None = None,
     ) -> None:
         if not prompt:
             msg = f"SpecializedAgent '{name}' requires an explicit prompt."
@@ -39,6 +40,7 @@ class SpecializedAgent(BaseAgent):
             prompt=prompt,
             role=role,
             tools=tools,
+            temperature=temperature,
         )
 
     def _build_prompt(
@@ -74,14 +76,28 @@ class SpecializedAgent(BaseAgent):
             rendered = f"{rendered}\n\nTool Outputs:\n{tools_text}"
         return rendered
 
-    def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
-        tool_outputs: list[Any] = []
-        if state.query_params and self.tools:
-            tool_outputs = self._execute_matching_tools_sync(state.query_params)
+    def _format_trace_summary(self, tool_outputs: list[Any]) -> str:
+        if not self.tools:
+            return f"Specialist '{self.name}' evaluated domain factors."
+        if tool_outputs:
+            return (
+                f"Specialist '{self.name}' evaluated domain factors "
+                f"(tools executed: {tool_outputs})."
+            )
+        return (
+            f"Specialist '{self.name}' evaluated domain factors "
+            "(no tools triggered)."
+        )
 
-        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
-        output = llm.generate(rendered_prompt)
+    def _execute_sync(self, state: AgentState, llm: LLM) -> AgentResult:
+        output, tool_outputs = self._run_with_tools_sync(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.specialist_insights[self.name] = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -89,19 +105,21 @@ class SpecializedAgent(BaseAgent):
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
-                summary=f"Specialist '{self.name}' evaluated domain factors.",
+                summary=self._format_trace_summary(tool_outputs),
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )
 
     async def _execute_async(self, state: AgentState, llm: LLM) -> AgentResult:
-        tool_outputs: list[Any] = []
-        if state.query_params and self.tools:
-            tool_outputs = await self._execute_matching_tools_async(state.query_params)
-
-        rendered_prompt = self._build_prompt(state, tool_outputs=tool_outputs)
-        output = await llm.agenerate(rendered_prompt)
+        output, tool_outputs = await self._run_with_tools_async(
+            state,
+            llm,
+            prompt_builder=lambda tools: self._build_prompt(state, tool_outputs=tools),
+        )
         state.specialist_insights[self.name] = output
+        if tool_outputs:
+            state.metadata[f"{self.name}_tool_outputs"] = tool_outputs
 
         return AgentResult(
             output=output,
@@ -109,7 +127,8 @@ class SpecializedAgent(BaseAgent):
             trace=AgentStepTrace(
                 agent_name=self.name,
                 execution_time_ms=0.0,
-                summary=f"Specialist '{self.name}' evaluated domain factors.",
+                summary=self._format_trace_summary(tool_outputs),
                 status="success",
+                details={"tool_outputs": tool_outputs} if tool_outputs else {},
             ),
         )

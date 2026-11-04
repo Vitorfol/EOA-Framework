@@ -104,6 +104,26 @@ class SessionStore(Protocol):
         """
         ...
 
+    def get_session_metadata(self, session_id: str) -> dict[str, Any]:
+        """Retrieve stored session metadata dictionary.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+
+        Returns:
+            Session metadata dictionary (or empty dict if unset).
+        """
+        ...
+
+    def set_session_metadata(self, session_id: str, metadata: dict[str, Any]) -> None:
+        """Store or update session metadata dictionary.
+
+        Args:
+            session_id: Unique identifier for the conversation session.
+            metadata: Metadata dictionary to persist for the session.
+        """
+        ...
+
     def delete_session(self, session_id: str) -> None:
         """Completely purge a session and its associated messages.
 
