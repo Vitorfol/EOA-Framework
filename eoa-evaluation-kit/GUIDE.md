@@ -1,6 +1,6 @@
 # EOA - Guia de Referência da API e Ferramentas
 
-Este documento sitematiza as classes, métodos e parâmetros disponibilizados pelo framework EOA e pelo módulo auxiliar [`tools.py`](./tools.py). Cada seção apresenta uma tabela de especificação técnica acompanhada de exemplos de implementação.
+Este documento sistematiza as classes, métodos e parâmetros disponibilizados pelo framework EOA e pelo módulo auxiliar [`tools.py`](./tools.py). Cada seção apresenta uma tabela de especificação técnica acompanhada de exemplos de implementação.
 
 ---
 
@@ -10,7 +10,7 @@ Este documento sitematiza as classes, métodos e parâmetros disponibilizados pe
 | :--- | :--- | :--- |
 | `ExplanationLayer.default_layer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, threshold=7.0, max_attempts=3, temperature=None, **llm_kwargs)` | Instanciação simplificada: inicializa a camada de explicabilidade com os quatro agentes padrão pré-configurados (`context_manager`, `artifacts`, `explainer`, `validator`). |
 | `ExplanationLayer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, max_attempts=3, auto_create_agents=False, **llm_kwargs)` | Instanciação customizada: permite compor a arquitetura manualmente e selecionar quais agentes serão registrados antes da execução. |
-| `layer.create_default_agents` | `(threshold=7.0, temperature=None)` | Usado  após a instanciação direta de `ExplanationLayer(...)` para registrar posteriormente os quatro agentes padrão. |
+| `layer.create_default_agents` | `(threshold=7.0, temperature=None)` | Usado após a instanciação direta de `ExplanationLayer(...)` para registrar posteriormente os quatro agentes padrão. |
 | `SQLiteSessionStore` | `(db_path="eoa.db", timeout=10.0)` | Habilita a persistência nativa em SQLite do histórico conversacional, dos artefatos recuperados e dos registros de auditoria do validador (fornecido via parâmetro `session_store`). |
 
 ### Exemplos de Implementação
@@ -37,7 +37,7 @@ layer_sqlite = ExplanationLayer.default_layer(
 client = genai.Client(api_key="sua-chave")
 layer_client = ExplanationLayer.default_layer(llm=client, model="gemini-3.6-flash")
 
-# 4. coplamento de uma função Python customizada (modelo local ou simulado)
+# 4. Acoplamento de uma função Python customizada (modelo local ou simulado)
 def meu_llm(prompt: str) -> str:
     return "Resposta customizada."
 
@@ -54,10 +54,10 @@ layer_manual.register_agent(ValidatorAgent(threshold=8.0))
 
 ## 2. Gerando e Lendo Explicações (`explain` e `ExplanationResponse`)
 
-| Método | Parâmetros principais |  Finalidade e Contexto de Aplicação |
+| Método | Parâmetros Principais | Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
 | `layer.explain` | `(user_query=..., *, prediction=None, xai=None, context=None, query_params=None, incident_id=None, session_id=None, metadata=None)` | Interface principal de execução síncrona. Suporta os modos Zero-ML (só `context`), Push (`prediction` + `xai`), Pull (`incident_id` + tools) e Multi-Turno (`session_id`). |
-| `await layer.aexplain` | Idênticos aos de `layer.explain` |  Interface de execução assíncrona destinada a aplicações baseadas em `asyncio`. |
+| `await layer.aexplain` | Idênticos aos de `layer.explain` | Interface de execução assíncrona destinada a aplicações baseadas em `asyncio`. |
 
 Principais atributos retornados na estrutura **`ExplanationResponse`**:
 
@@ -114,7 +114,7 @@ for step in r_push.execution_trace:
 
 ---
 
-## 3. Gerenciamento Agentes, Prompts e Ferramentas
+## 3. Gerenciamento de Agentes, Prompts e Ferramentas
 
 | Classe / Método | Parâmetros Principais | Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
@@ -230,9 +230,9 @@ ctx = DomainContext(
 
 ---
 
-## 6. Funções Auxiliares do Ambiente Experimental  ([`tools.py`](./tools.py))
+## 6. Funções Auxiliares do Ambiente Experimental ([`tools.py`](./tools.py))
 
-Implementadas exclusivamente com a biblioteca padrão do Python (`csv`, `json`, `pathlib`), estas funções provêem acesso estruturado aos dados pré-processados no diretório `infrastructure/`:
+Implementadas exclusivamente com a biblioteca padrão do Python (`csv`, `json`, `pathlib`), estas funções proveem acesso estruturado aos dados pré-processados no diretório `infrastructure/`:
 
 | Função | Parâmetros | Retorno e Finalidade |
 | :--- | :--- | :--- |
@@ -262,7 +262,7 @@ leituras = get_sensor_readings(2)
 desvios = get_baseline_comparison(2)
 print(desvios["comparisons"]["TS1"])
 
-# # Carregamento da documentação técnica e do dicionário de sensores para o parâmetro context=
+# Carregamento da documentação técnica e do dicionário de sensores para o parâmetro context=
 contexto_completo = load_domain_context()
 ```
 
@@ -270,7 +270,7 @@ contexto_completo = load_domain_context()
 
 ## 7. Arquitetura Interna do Pacote `src/eoa/` (Referência Complementar)
 
- **Nota Metodológica:** Esta seção apresenta uma visão estrutural da organização interna do pacote distribuído no arquivo `.whl`. Trata-se de material estritamente complementar, não sendo necessária a consulta aos módulos internos para a condução do protocolo experimental no *notebook*.
+**Nota Metodológica:** Esta seção apresenta uma visão estrutural da organização interna do pacote distribuído no arquivo `.whl`. Trata-se de material estritamente complementar, não sendo necessária a consulta aos módulos internos para a condução do protocolo experimental no *notebook*.
 
 ```text
 src/eoa/

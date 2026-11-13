@@ -1,6 +1,6 @@
 # EOA - Kit de Avaliação Experimental
 
-Este pacote reúne as informações necessárias para testar o **EOA (*Explanation-Oriented Agents*)**. Nosso objetivo é ouvir desenvolvedores, pesquisadores e cientístas de dados para avaliar a experiência de uso, a clareza da API e o valor entregue pelo framework.
+Este pacote reúne as informações necessárias para testar o **EOA (*Explanation-Oriented Agents*)**. Nosso objetivo é ouvir desenvolvedores, pesquisadores e cientistas de dados para avaliar a experiência de uso, a clareza da API e o valor entregue pelo framework.
 
 ---
 
@@ -16,7 +16,7 @@ A presente pesquisa avança nessa direção ao generalizar a arquitetura origina
 
 ## 2. Por que estamos fazendo esta avaliação?
 
-ste pacote (`eoa-evaluation-kit`) foi estruturado para viabilizar a avaliação empírica do framework no âmbito de uma investigação científica em curso. O estudo busca analisar a experiência de desenvolvimento e a adequação prática do EOA sob três dimensões principais:
+Este pacote (`eoa-evaluation-kit`) foi estruturado para viabilizar a avaliação empírica do framework no âmbito de uma investigação científica em curso. O estudo busca analisar a experiência de desenvolvimento e a adequação prática do EOA sob três dimensões principais:
 
 - **Usabilidade e integração da API:** A interface de programação demonstra-se intuitiva e de fácil incorporação a fluxos de trabalho existentes?
 - **Expressividade e extensibilidade:** A estrutura de código requerida para gerar explicações e customizar o comportamento dos agentes é clara e coerente?
@@ -40,7 +40,6 @@ Dessa forma, o participante pode concentrar-se integralmente na instrumentação
 
 ## 4. Hands-On: instalação e primeiros passos
 
-
 ### 1. Verificação da versão do Python (`>= 3.11`)
 O EOA requer **Python 3.11 ou superior**. Verifique no terminal:
 
@@ -60,7 +59,7 @@ pip install "eoa-0.1.0-py3-none-any.whl[gemini]" jupyter ipykernel python-dotenv
 
 *(Não é necessária a instalação das bibliotecas `scikit-learn` ou `shap`. Todos os resultados do modelo já estão pré-calculados nos arquivos de infraestrutura.)*
 
-### 3.Configuração da chave de API do Gemini (`.env`)
+### 3. Configuração da chave de API do Gemini (`.env`)
 Um arquivo **`.env`** contendo uma chave de API previamente configurada foi disponibilizado na raiz deste diretório para viabilizar a execução imediata dos experimentos, dispensando a criação de contas externas. O *notebook* experimental carrega essa variável de ambiente automaticamente.
 
 Em caso de excedente de cota (*rate limit*) ou eventuais falhas de autenticação junto à API do Gemini durante a execução do protocolo, solicita-se entrar em contato com os pesquisadores responsáveis para imediata substituição da credencial ou aguardar 1 hora para realizar os testes novamente.
@@ -81,6 +80,7 @@ jupyter notebook exploration.ipynb
 ```
 
 Alternativamente, caso utilize ambientes integrados como VS Code ou Cursor, basta abrir o arquivo `exploration.ipynb` diretamente no editor e selecionar o ambiente virtual `.venv` como *kernel* de execução.
+
 ---
 
 ## 5. Funcionalidades e Arquitetura Observáveis Durante a Avaliação
@@ -88,7 +88,40 @@ Alternativamente, caso utilize ambientes integrados como VS Code ou Cursor, bast
 Ao longo da interação com [`exploration.ipynb`](./exploration.ipynb) e [`GUIDE.md`](./GUIDE.md), serão exercitados os principais mecanismos arquiteturais do framework:
 
 - **Orquestração multiagente orientada à explicabilidade:** Quatro agentes especializados operam de forma coordenada no *pipeline* padrão (`ContextManagerAgent`, `ArtifactsAgent`, `ExplainerAgent` e `ValidatorAgent`), incorporando uma etapa automatizada de auditoria que verifica a consistência da explicação gerada frente aos dados empíricos originais antes de retorná-la ao usuário.
-- **Baixa sobrecarga de configuração (*low-code integration*):** A camada de explicabilidade pode ser instanciada de forma sucinta via `ExplanationLayer.default_layer(...)` e invocada por meio de `layer.explain(...)`, suportando tanto a injeção direta dos dados quanto a consulta autônoma a ferramentas Python por identificador, ou mesmo a operação baseada exclusivamente em documentação e contexto de domínio (na ausência de um modelo preditivo).
+- **Baixa sobrecarga de configuração (*low-code integration*):** A camada de explicabilidade pode ser instanciada de forma sucinta via `ExplanationLayer(...)` ou `ExplanationLayer.default_layer(...)` e invocada por meio de `layer.explain(...)`, suportando tanto a injeção direta dos dados quanto a consulta autônoma a ferramentas Python por identificador, ou mesmo a operação baseada exclusivamente em documentação e contexto de domínio (na ausência de um modelo preditivo).
 - **Acoplamento nativo de funções (*tool binding*):** Qualquer função Python devidamente tipada e documentada, a exemplo das implementadas em `tools.py`, pode ser registrada como ferramenta (*tool*) executável por um agente.
 - **Inspecionabilidade e extensibilidade arquitetural:** O framework permite auditar a topologia dos agentes ativos (`layer.inspect()`), refinar instruções (*prompts*) de forma granular, incorporar agentes especialistas customizados (`SpecializedAgent`) e manter o histórico de interações em sessões multiturno persistidas nativamente em SQLite.
 - **Tolerância a falhas e degradação graciosa (*graceful degradation*):** Na ocorrência de falhas de rede ou indisponibilidade do Modelo de Linguagem Grande (LLM), o *pipeline* de execução degrada de maneira controlada, preservando a estabilidade da aplicação hospedeira sem interrupções abruptas.
+
+---
+
+## 6. Exemplo Mínimo de Uso
+
+Para ilustrar o funcionamento da interface principal antes da exploração do *notebook*, o trecho a seguir demonstra a conversão de uma predição e de seus atributos de XAI em uma explicação contextualizada:
+
+```python
+from eoa import ExplanationLayer
+
+layer = ExplanationLayer(
+    provider="gemini",
+    api_key="your_key",
+    model="gemini-3.6-flash",
+)
+
+resposta = layer.explain(
+    user_query="Por que a eficiência do refrigerador foi classificada em 3%?",
+    prediction={
+        "target_variable": "Cooler condition / %",
+        "predicted_value": "3% (close to total failure)",
+        "confidence_or_probability": 1.0,
+    },
+    xai={
+        "method": "TreeSHAP",
+        "feature_attributions": {"PS6": 0.1670, "PS5": 0.1557, "TS4": 0.1340},
+    },
+)
+
+print(resposta.narrative)
+```
+
+Exemplos completos utilizando tools, sessões multiturno com persistência, agentes especializados e mais encontram-se em [`GUIDE.md`](./GUIDE.md) e [`exploration.ipynb`](./exploration.ipynb).
