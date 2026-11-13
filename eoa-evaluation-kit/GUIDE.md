@@ -1,28 +1,28 @@
 # EOA - Guia de Referência da API e Ferramentas
 
-Este guia reúne, por tópico, as funções e os parâmetros que você pode chamar no framework EOA e no módulo auxiliar [`tools.py`](./tools.py), sempre com a tabela de referência seguida de exemplos práticos.
+Este documento sitematiza as classes, métodos e parâmetros disponibilizados pelo framework EOA e pelo módulo auxiliar [`tools.py`](./tools.py). Cada seção apresenta uma tabela de especificação técnica acompanhada de exemplos de implementação.
 
 ---
 
 ## 1. Inicialização da `ExplanationLayer`
 
-| Função / Classe | Parâmetros principais | Quando chamar |
+| Classe / Método | Parâmetros Principais | Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
-| `ExplanationLayer.default_layer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, threshold=7.0, max_attempts=3, temperature=None, **llm_kwargs)` | Forma mais rápida de começar: já cria a camada com os 4 agentes padrão ativos (`context_manager`, `artifacts`, `explainer`, `validator`). |
-| `ExplanationLayer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, max_attempts=3, auto_create_agents=False, **llm_kwargs)` | Quando você quer montar a camada manualmente e escolher quais agentes registrar antes de executar. |
-| `layer.create_default_agents` | `(threshold=7.0, temperature=None)` | Usado após `ExplanationLayer(...)` se quiser ativar os 4 agentes padrão depois. |
-| `SQLiteSessionStore` | `(db_path="eoa.db", timeout=10.0)` | Para persistir histórico de conversa, artefatos e notas do validador em SQLite nativo (passe no parâmetro `session_store`). |
+| `ExplanationLayer.default_layer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, threshold=7.0, max_attempts=3, temperature=None, **llm_kwargs)` | Instanciação simplificada: inicializa a camada de explicabilidade com os quatro agentes padrão pré-configurados (`context_manager`, `artifacts`, `explainer`, `validator`). |
+| `ExplanationLayer` | `(llm=None, *, provider=None, api_key=None, model=None, session_store=None, max_attempts=3, auto_create_agents=False, **llm_kwargs)` | Instanciação customizada: permite compor a arquitetura manualmente e selecionar quais agentes serão registrados antes da execução. |
+| `layer.create_default_agents` | `(threshold=7.0, temperature=None)` | Usado  após a instanciação direta de `ExplanationLayer(...)` para registrar posteriormente os quatro agentes padrão. |
+| `SQLiteSessionStore` | `(db_path="eoa.db", timeout=10.0)` | Habilita a persistência nativa em SQLite do histórico conversacional, dos artefatos recuperados e dos registros de auditoria do validador (fornecido via parâmetro `session_store`). |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
 from google import genai
 from eoa import ExplanationLayer, ExplainerAgent, SQLiteSessionStore, ValidatorAgent
 
-# 1. Padrão detectando GEMINI_API_KEY do .env
+# 1. Inicialização padrão com detecção automática de GEMINI_API_KEY via .env
 layer = ExplanationLayer.default_layer()
 
-# 2. Configurando provedor, modelo, nota de corte e persistência em SQLite
+# 2. Configuração explícita de provedor, modelo, limiar de aprovação e persistência SQLite
 store = SQLiteSessionStore("hydraulic_audit.db")
 layer_sqlite = ExplanationLayer.default_layer(
     provider="gemini",
@@ -33,17 +33,17 @@ layer_sqlite = ExplanationLayer.default_layer(
     session_store=store,
 )
 
-# 3. Trazendo um cliente genai.Client já configurado
+# 3. Injeção de um cliente genai.Client previamente instanciado
 client = genai.Client(api_key="sua-chave")
 layer_client = ExplanationLayer.default_layer(llm=client, model="gemini-3.6-flash")
 
-# 4. Conectando uma função Python customizada (modelo local ou simulado)
+# 4. coplamento de uma função Python customizada (modelo local ou simulado)
 def meu_llm(prompt: str) -> str:
     return "Resposta customizada."
 
 layer_custom = ExplanationLayer.default_layer(llm=meu_llm)
 
-# 5. Construtor direto com criação automática ou manual de agentes
+# 5. Construtor direto com registro automático ou manual de agentes
 layer_direto = ExplanationLayer(provider="gemini", model="gemini-3.6-flash", auto_create_agents=True)
 layer_manual = ExplanationLayer(provider="gemini", model="gemini-3.6-flash")
 layer_manual.register_agent(ExplainerAgent())
@@ -54,25 +54,25 @@ layer_manual.register_agent(ValidatorAgent(threshold=8.0))
 
 ## 2. Gerando e Lendo Explicações (`explain` e `ExplanationResponse`)
 
-| Método | Parâmetros principais | Quando chamar |
+| Método | Parâmetros principais |  Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
-| `layer.explain` | `(user_query=..., *, prediction=None, xai=None, context=None, query_params=None, incident_id=None, session_id=None, metadata=None)` | Ponto principal de execução síncrona. Atende Zero-ML (só `context`), Push (`prediction` + `xai`), Pull (`incident_id` + tools) e Multi-Turno (`session_id`). |
-| `await layer.aexplain` | Mesmos parâmetros de `layer.explain` | Quando sua aplicação for assíncrona (`asyncio`). |
+| `layer.explain` | `(user_query=..., *, prediction=None, xai=None, context=None, query_params=None, incident_id=None, session_id=None, metadata=None)` | Interface principal de execução síncrona. Suporta os modos Zero-ML (só `context`), Push (`prediction` + `xai`), Pull (`incident_id` + tools) e Multi-Turno (`session_id`). |
+| `await layer.aexplain` | Idênticos aos de `layer.explain` |  Interface de execução assíncrona destinada a aplicações baseadas em `asyncio`. |
 
-Campos principais retornados em **`ExplanationResponse`**:
+Principais atributos retornados na estrutura **`ExplanationResponse`**:
 
 | Atributo | Tipo | Significado |
 | :--- | :--- | :--- |
-| `narrative` | `str` | Explicação final produzida para o usuário. |
-| `validation_score` | `float \| None` | Nota dada pelo `ValidatorAgent` (`0.0` a `10.0`). |
-| `validation_passed` | `bool \| None` | `True` se atingiu o `threshold` configurado. |
-| `validation_critique` | `str \| None` | Feedback do auditor quando pede refinamento. |
-| `attempts_used` | `int` | Quantas rodadas de geração/validação ocorreram (`>= 1`). |
-| `fallback_used` | `bool` | `True` se o LLM falhou e entrou o modo *fail-safe* determinístico. |
-| `session_id` | `str \| None` | ID da sessão utilizada. |
-| `execution_trace` | `list[AgentStepTrace]` | Lista com `agent_name`, `status`, `execution_time_ms` e `summary` de cada etapa. |
+| `narrative` | `str` | Narrativa explicativa final destinada ao usuário. |
+| `validation_score` | `float \| None` | Pontuação atribuída pelo `ValidatorAgent` (escala de `0.0` a `10.0`). |
+| `validation_passed` | `bool \| None` | Indica se a explicação atingiu ou superou o limiar (`threshold`) configurado. |
+| `validation_critique` | `str \| None` | Parecer técnico emitido pelo agente auditor quando um ciclo de refinamento é solicitado. |
+| `attempts_used` | `int` | Número de iterações de geração e validação executadas (`>= 1`). |
+| `fallback_used` | `bool` | Indica se houve falha na comunicação com o LLM e acionamento do modo *fail-safe* determinístico. |
+| `session_id` | `str \| None` | Identificador único da sessão conversacional utilizada. |
+| `execution_trace` | `list[AgentStepTrace]` | Registro estruturado contendo `agent_name`, `status`, `execution_time_ms` e `summary` de cada etapa. |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
 from tools import get_incident, load_domain_context
@@ -80,13 +80,13 @@ from tools import get_incident, load_domain_context
 ctx = load_domain_context()
 inc = get_incident(2)
 
-# 1. Modo Zero-ML (explora apenas documentação e sensores, sem modelo preditivo)
+# 1. Modo Zero-ML (consulta exclusivamente documentação e sensores, sem modelo preditivo)
 r_zero = layer.explain(
     context=ctx,
     user_query="Quais são os 14 sensores físicos do sistema e o que significa cada código de condição?",
 )
 
-# 2. Modo Push (envia predição e SHAP diretamente)
+# 2. Modo Push (fornecimento direto da predição e dos valores SHAP)
 r_push = layer.explain(
     prediction=inc["prediction"],
     xai=inc["xai"],
@@ -94,18 +94,18 @@ r_push = layer.explain(
     user_query="Por que este ciclo foi classificado como 3% (próximo à falha total)?",
 )
 
-# 3. Modo Pull (os agentes buscam os dados sozinhos via tools registradas)
+# 3. Modo Pull (recuperação autônoma de dados pelos agentes via ferramentas registradas)
 r_pull = layer.explain(
     incident_id=2,
     context=load_domain_context(include_baseline_thresholds=False),
     user_query="Diagnostique o incidente 2 comparando temperaturas e pressões com a operação normal.",
 )
 
-# 4. Modo Multi-Turno (reaproveita histórico e artefatos da sessão)
+# 4. Modo Multi-Turno (reutilização do histórico e dos artefatos persistidos na sessão)
 r_t1 = layer.explain(incident_id=2, session_id="op_01", context=ctx, user_query="Resuma a falha do incidente 2.")
 r_t2 = layer.explain(session_id="op_01", user_query="Quanto o sensor TS1 subiu acima da média saudável?")
 
-# 5. Lendo o rastro de execução
+# 5. Inspeção do rastro de execução (execution trace)
 print(r_push.narrative)
 print(f"Nota: {r_push.validation_score}/10 | Tentativas: {r_push.attempts_used}")
 for step in r_push.execution_trace:
@@ -114,33 +114,33 @@ for step in r_push.execution_trace:
 
 ---
 
-## 3. Gerenciando Agentes, Prompts e Ferramentas
+## 3. Gerenciamento Agentes, Prompts e Ferramentas
 
-| Função / Classe | Parâmetros principais | Quando chamar |
+| Classe / Método | Parâmetros Principais | Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
-| `layer.inspect` | `(print_output=True)` | Para conferir rapidamente quais agentes estão ativos, quantas tools têm e qual prompt usam. |
-| `layer.get_agent` | `(name)` | Para pegar um agente (`"context_manager"`, `"artifacts"`, `"explainer"`, `"validator"` ou customizado) e configurar tools/retriever. |
-| `agent.register_tool` | `(tool_or_fn)` | Para anexar qualquer função Python tipada (com docstring) como ferramenta do agente. |
-| `layer.override_agent_prompt` | `(name, prompt)` | Para trocar o prompt de um agente usando uma `str` ou um `Path("arquivo.md")`. |
-| `layer.reset_agent_prompt` | `(name)` | Para restaurar o prompt padrão embutido do agente. |
-| `SpecializedAgent` | `(name, prompt, role=None, tools=None, temperature=None)` | Para criar um novo agente especialista com foco em um domínio ou regra específica. |
-| `layer.register_agent` | `(agent, prompt_source=None)` | Para adicionar um `SpecializedAgent` à camada ou substituir um agente existente. |
-| `layer.remove_agent` | `(name)` | Para desligar um agente do pipeline (ex.: remover `"validator"` em testes rápidos). |
-| `cma.set_retriever` | `(retriever)` | Para trocar o buscador padrão do `ContextManagerAgent` por uma função `fn(query)` ou objeto RAG próprio. |
+| `layer.inspect` | `(print_output=True)` | Permite auditar a topologia da camada, exibindo agentes ativos, ferramentas vinculadas e prompts em uso. |
+| `layer.get_agent` | `(name)` | Recupera a instância de um agente (`"context_manager"`, `"artifacts"`, `"explainer"`, `"validator"` ou customizado) para configuração de ferramentas ou recuperadores. |
+| `agent.register_tool` | `(tool_or_fn)` | Registra uma função Python devidamente tipada e documentada (*docstring*) como ferramenta executável pelo agente. |
+| `layer.override_agent_prompt` | `(name, prompt)` | Substitui a instrução (*prompt*) de um agente por meio de uma `str` ou de um arquivo `Path("arquivo.md")`. |
+| `layer.reset_agent_prompt` | `(name)` | Restaura a instrução padrão nativa do agente especificado. |
+| `SpecializedAgent` | `(name, prompt, role=None, tools=None, temperature=None)` | Define um agente especialista customizado voltado a um subdomínio ou regra analítica específica. |
+| `layer.register_agent` | `(agent, prompt_source=None)` | Incorpora um `SpecializedAgent` à camada ou substitui um agente previamente registrado. |
+| `layer.remove_agent` | `(name)` | Remove um agente do *pipeline* de execução (por exemplo, desativar `"validator"` em experimentos controlados). |
+| `cma.set_retriever` | `(retriever)` | Substitui o mecanismo padrão de recuperação do `ContextManagerAgent` por uma função `fn(query)` ou componente RAG customizado. |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
 from eoa import SpecializedAgent
 from tools import get_baseline_comparison, get_incident, get_sensor_readings
 
-# 1. Registrando tools para o Modo Pull e inspecionando a camada
+# 1. Registro de ferramentas para o Modo Pull e inspeção da topologia da camada
 layer.get_agent("artifacts").register_tool(get_incident)
 layer.get_agent("context_manager").register_tool(get_sensor_readings)
 layer.get_agent("context_manager").register_tool(get_baseline_comparison)
 layer.inspect()
 
-# 2. Sobrescrevendo o prompt do Explainer e restaurando depois
+# 2. Sobrescrita e posterior restauração do prompt do ExplainerAgent
 layer.override_agent_prompt(
     "explainer",
     """Responda em 3 tópicos curtos usando apenas os dados verificados abaixo:
@@ -155,7 +155,7 @@ Pergunta: {user_query}
 )
 # layer.reset_agent_prompt("explainer")
 
-# 3. Adicionando um agente especialista de domínio (executa em paralelo na Fase 1)
+# 3. Incorporação de um agente especialista de domínio (executado em paralelo na Fase 1)
 especialista = SpecializedAgent(
     name="analista_estabilidade",
     role="Especialista em Regime Térmico",
@@ -172,26 +172,26 @@ layer.register_agent(especialista)
 
 ## 4. Sessões, Histórico e Auditoria (`SQLiteSessionStore`)
 
-| Método | Parâmetros principais | Quando chamar |
+| Método | Parâmetros Principais | Finalidade e Contexto de Aplicação |
 | :--- | :--- | :--- |
-| `layer.get_history` | `(session_id)` | Para recuperar todas as mensagens (`ChatMessage`) trocadas na sessão em ordem cronológica. |
-| `layer.clear_session` | `(session_id)` | Para apagar o histórico e o cache de artefatos de uma sessão antes de recomeçar. |
-| `store.get_validation_logs` | `(session_id)` | Para consultar notas, aprovações e críticas gravadas pelo `ValidatorAgent` no SQLite. |
-| `store.list_sessions` | `()` | Para listar todos os `session_id` já registrados no banco SQLite. |
-| `store.export_dict` | `(session_id=None)` | Para exportar sessões, mensagens e logs de validação como dicionário Python/JSON. |
+| `layer.get_history` | `(session_id)` | Recupera cronologicamente todas as mensagens (`ChatMessage`) registradas na sessão especificada. |
+| `layer.clear_session` | `(session_id)` | Remove o histórico conversacional e o cache de artefatos de uma sessão antes de uma nova execução. |
+| `store.get_validation_logs` | `(session_id)` | Consulta as pontuações, aprovações e pareceres críticos persistidos pelo `ValidatorAgent` no SQLite. |
+| `store.list_sessions` | `()` | Lista todos os identificadores de sessão (`session_id`) armazenados no banco de dados SQLite. |
+| `store.export_dict` | `(session_id=None)` | Exporta sessões, mensagens e registros de validação em formato de dicionário Python/JSON. |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
-# Ver diálogo gravado na sessão
+# Inspeção do histórico conversacional persistido na sessão
 for msg in layer_sqlite.get_history("op_01"):
     print(f"[{msg.role}] {msg.content}")
 
-# Ver notas do ValidatorAgent gravadas no banco SQLite
+# Consulta aos registros de auditoria do ValidatorAgent no banco SQLite
 for log in store.get_validation_logs("op_01"):
     print(f"Nota: {log['score']}/10 | Aprovado: {log['passed']} | Meta: {log['metadata']}")
 
-# Exportar auditoria completa da sessão e limpar ao final
+# Exportação completa dos registros de auditoria e limpeza da sessão ao término
 auditoria = store.export_dict(session_id="op_01")
 layer_sqlite.clear_session("op_01")
 ```
@@ -200,15 +200,15 @@ layer_sqlite.clear_session("op_01")
 
 ## 5. Contratos de Dados (`PredictionArtifact`, `XAIArtifact`, `DomainContext`)
 
-Você pode enviar dicionários Python simples (como os retornados por `tools.py`) ou instanciar as classes Pydantic diretamente:
+A API aceita tanto dicionários Python nativos (a exemplo dos retornados por `tools.py`) quanto instâncias diretas dos modelos Pydantic:
 
-| Contrato | Principais campos | Quando usar / observar |
+| Contrato | Principais campos | Especificação e Uso |
 | :--- | :--- | :--- |
-| `PredictionArtifact` | `target_variable`, `predicted_value`, `confidence_or_probability`, `status_label`, `model_name`, `metadata` | Representa a predição do modelo (Nível 1). `target_variable` e `predicted_value` são obrigatórios. |
-| `XAIArtifact` | `method`, `feature_attributions`, `baseline_values`, `counterfactuals`, `raw_artifacts` | Representa pesos de explicabilidade (Nível 2). Traz `.top_features(n=5, absolute=True)` pronto. |
-| `DomainContext` | `variables`, `thresholds`, `documents`, `hierarchy`, `schemas` | Agrupa dicionário de sensores, faixas de referência e textos técnicos. Possui `.merge(...)`. |
+| `PredictionArtifact` | `target_variable`, `predicted_value`, `confidence_or_probability`, `status_label`, `model_name`, `metadata` | Encapsula a saída do modelo preditivo (Nível 1). Os atributos `target_variable` e `predicted_value` são obrigatórios. |
+| `XAIArtifact` | `method`, `feature_attributions`, `baseline_values`, `counterfactuals`, `raw_artifacts` | Encapsula as atribuições de explicabilidade (Nível 2). Disponibiliza o método auxiliar `.top_features(n=5, absolute=True)`. |
+| `DomainContext` | `variables`, `thresholds`, `documents`, `hierarchy`, `schemas` | Agrega o dicionário de sensores, limiares de referência e documentação técnica. Suporta composição via `.merge(...)`. |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
 from eoa import DomainContext, PredictionArtifact, XAIArtifact
@@ -230,19 +230,19 @@ ctx = DomainContext(
 
 ---
 
-## 6. Funções Prontas do Kit ([`tools.py`](./tools.py))
+## 6. Funções Auxiliares do Ambiente Experimental  ([`tools.py`](./tools.py))
 
-Todas usam apenas a biblioteca padrão do Python (`csv`, `json`, `pathlib`) para acessar os dados já processados na pasta `infrastructure/`:
+Implementadas exclusivamente com a biblioteca padrão do Python (`csv`, `json`, `pathlib`), estas funções provêem acesso estruturado aos dados pré-processados no diretório `infrastructure/`:
 
-| Função | Parâmetros | O que retorna / quando chamar |
+| Função | Parâmetros | Retorno e Finalidade |
 | :--- | :--- | :--- |
-| `list_incidents` | `(condition_code=None)` | Lista os 9 incidentes curados (ou filtra por `3`, `20` ou `100`) com confiança, `stable_flag` e Top 3 no TreeSHAP. |
-| `get_incident` | `(incident_id=None, *, cycle_id=None)` | Retorna `{"prediction": ..., "xai": ...}` para o incidente (`1` a `9`) ou ciclo. Ideal para Modo Push ou tool do `ArtifactsAgent`. |
-| `get_sensor_readings` | `(incident_id=None, *, cycle_id=None)` | Retorna as médias de 60s dos 14 sensores físicos com unidades e `stable_flag`, mais texto estruturado em `documents`. |
-| `get_baseline_comparison` | `(incident_id=None, *, cycle_id=None)` | Compara os 14 sensores do incidente contra a referência saudável de 100% (`N=593` ciclos), calculando `delta`, `z_score` e faixa `p05..p95`. |
-| `load_domain_context` | `(include_baseline_thresholds=True)` | Carrega [`description.md`](./infrastructure/docs/description.md), [`documentation.md`](./infrastructure/docs/documentation.md), dicionário dos 14 sensores e limiares saudáveis. |
+| `list_incidents` | `(condition_code=None)` | Retorna a listagem dos 9 incidentes selecionados (com filtragem opcional por `3`, `20` ou `100`), incluindo confiança, `stable_flag` e os três principais atributos no TreeSHAP. |
+| `get_incident` | `(incident_id=None, *, cycle_id=None)` | Retorna o dicionário `{"prediction": ..., "xai": ...}` correspondente ao incidente (`1` a `9`) ou ciclo especificado. Adequado ao Modo Push ou como ferramenta do `ArtifactsAgent`. |
+| `get_sensor_readings` | `(incident_id=None, *, cycle_id=None)` | Retorna as médias de 60 segundos dos 14 sensores físicos acompanhadas de unidades, indicador `stable_flag` e representação textual estruturada em `documents`. |
+| `get_baseline_comparison` | `(incident_id=None, *, cycle_id=None)` | Compara as leituras dos 14 sensores do incidente frente ao regime nominal saudável de 100% (`N=593` ciclos), computando `delta`, `z_score` e intervalo interquantílico `p05..p95`. |
+| `load_domain_context` | `(include_baseline_thresholds=True)` | Carrega os documentos [`description.md`](./infrastructure/docs/description.md) e [`documentation.md`](./infrastructure/docs/documentation.md), o dicionário dos 14 sensores e os limiares operacionais saudáveis. |
 
-### Exemplos de uso
+### Exemplos de Implementação
 
 ```python
 from tools import (
@@ -253,24 +253,24 @@ from tools import (
     load_domain_context,
 )
 
-# Listar apenas incidentes críticos (3%)
+# Listagem filtrada de incidentes críticos (eficiência de 3%)
 criticos = list_incidents(condition_code=3)
 
-# Buscar artefatos de ML/XAI, leituras e desvio da linha de base do incidente 2
+# Recuperação de artefatos de ML/XAI, leituras de sensores e desvios da linha de base para o incidente 2
 inc2 = get_incident(2)
 leituras = get_sensor_readings(2)
 desvios = get_baseline_comparison(2)
 print(desvios["comparisons"]["TS1"])
 
-# Carregar documentação e dicionário de sensores para o context=
+# # Carregamento da documentação técnica e do dicionário de sensores para o parâmetro context=
 contexto_completo = load_domain_context()
 ```
 
 ---
 
-## 7. Para Curiosos: Estrutura Interna do `src/eoa/` (Leitura Opcional)
+## 7. Arquitetura Interna do Pacote `src/eoa/` (Referência Complementar)
 
-> **Nota:** Esta seção é apenas uma visão rápida de como a biblioteca instalada no `.whl` está organizada por dentro. **Não é leitura obrigatória** e você não precisa consultar nenhum módulo interno para fazer os testes no notebook.
+ **Nota Metodológica:** Esta seção apresenta uma visão estrutural da organização interna do pacote distribuído no arquivo `.whl`. Trata-se de material estritamente complementar, não sendo necessária a consulta aos módulos internos para a condução do protocolo experimental no *notebook*.
 
 ```text
 src/eoa/
@@ -302,4 +302,4 @@ src/eoa/
     └── sqlite.py                 # SQLiteSessionStore persistente (tabelas sessions, messages e validation_logs)
 ```
 
-*Novamente, essa visão interna é totalmente opcional. Tudo o que você precisa para explorar e avaliar o EOA está nas seções 1 a 6 acima e no [`exploration.ipynb`](./exploration.ipynb).*
+*Reitera-se que esta visão arquitetural possui caráter exclusivamente informativo. Todos os recursos necessários para a instrumentação e avaliação empírica do framework EOA encontram-se especificados nas Seções 1 a 6 e exemplificados em [`exploration.ipynb`](./exploration.ipynb).*
