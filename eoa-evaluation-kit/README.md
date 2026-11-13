@@ -62,7 +62,7 @@ pip install "eoa-0.1.0-py3-none-any.whl[gemini]" jupyter ipykernel python-dotenv
 ### 3. Configuração da chave de API do Gemini (`.env`)
 Um arquivo **`.env`** contendo uma chave de API previamente configurada foi disponibilizado na raiz deste diretório para viabilizar a execução imediata dos experimentos, dispensando a criação de contas externas. O *notebook* experimental carrega essa variável de ambiente automaticamente.
 
-Em caso de excedente de cota (*rate limit*) ou eventuais falhas de autenticação junto à API do Gemini durante a execução do protocolo, solicita-se entrar em contato com os pesquisadores responsáveis para imediata substituição da credencial ou aguardar 1 hora para realizar os testes novamente.
+Em caso de excedente de cota (*rate limit*) ou eventuais falhas de autenticação junto à API do Gemini durante a execução do protocolo, solicita-se entrar em contato com os pesquisadores responsáveis para imediata substituição da credencial, trocar o modelo utilizado ou aguardar 1 hora para realizar os testes novamente.
 - **Vitor Fontenele:** `vitor_fontenele@atlantico.com.br`
 - **Paulo Coelho:** `paulo_coelho@atlantico.com.br`
 
